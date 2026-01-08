@@ -1,0 +1,57 @@
+<link rel="stylesheet" href="https://unpkg.com/landsoul" />
+<link rel="stylesheet" href="https://unpkg.com/landsoul/dist/extra.css" />
+
+<header>
+  <slot name="header">
+    <my-header></my-header>
+  </slot>
+</header>
+
+<main>
+  <slot></slot>
+</main>
+
+<footer></footer>
+
+<script type="module">
+  import confetti from "canvas-confetti";
+  import { loadComponent } from "../lib.js";
+  loadComponent("my-header", "./header.html");
+
+  export default class MyLayout extends HTMLElement {
+    connectedCallback() {
+      this.shadowRoot.querySelector("footer").textContent = navigator.userAgent;
+      this.shadowRoot.querySelector("main").addEventListener("click", (e) => {
+        confetti({
+          particleCount: 20,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      });
+    }
+  }
+</script>
+
+<style>
+  :host {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    height: 100%;
+    padding: 1rem;
+  }
+
+  main {
+    flex: 1;
+  }
+
+  footer {
+    position: fixed;
+    bottom: 0;
+    margin-top: auto;
+    font-weight: lighter;
+    font-size: 0.7rem;
+    line-height: 0.6rem;
+    padding: 0.5em;
+  }
+</style>

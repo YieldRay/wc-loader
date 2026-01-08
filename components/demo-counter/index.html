@@ -1,0 +1,34 @@
+<button id="decrement">-</button>
+<span id="counter-value">0</span>
+<button id="increment">+</button>
+
+<script type="module">
+  export default class DemoCounter extends HTMLElement {
+    connectedCallback() {
+      this.shadowRoot.getElementById("decrement").addEventListener("click", () => {
+        this._updateCounter(-1);
+      });
+      this.shadowRoot.getElementById("increment").addEventListener("click", () => {
+        this._updateCounter(1);
+      });
+    }
+
+    _updateCounter(delta) {
+      const counterValueElem = this.shadowRoot.getElementById("counter-value");
+      let currentValue = parseInt(counterValueElem.textContent, 10);
+      currentValue += delta;
+      counterValueElem.textContent = currentValue;
+    }
+  }
+</script>
+
+<link id="stylesheet" rel="stylesheet" href="https://unpkg.com/landsoul" />
+
+<style>
+  :host {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: 1.5rem;
+  }
+</style>

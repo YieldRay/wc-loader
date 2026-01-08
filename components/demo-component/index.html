@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demo Component</title>
+  </head>
+  <body>
+    <p>Current Time: <time id="demo"></time></p>
+    <demo-counter></demo-counter>
+    <demo-counter></demo-counter>
+  </body>
+  <!-- choose one of -->
+
+  <!-- inline script -->
+  <!-- <script type="module">
+    export { default } from "./js/index.js";
+  </script> -->
+
+  <!-- external script -->
+  <script type="module" src="./js/index.js"></script>
+</html>
+
+<link rel="stylesheet" href="./css/index.css" />
+<style>
+  :host {
+    display: flex;
+    flex-direction: column;
+  }
+</style>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WCLoader</title>
+    <style>
+      :root,
+      body,
+      my-layout {
+        margin: 0;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <my-layout>
+      <demo-component></demo-component>
+    </my-layout>
+
+    <script type="module">
+      import { loadComponent } from "./lib.js";
+      loadComponent("my-layout", "./components/layout.html");
+      loadComponent("demo-component", "./components/demo-component/");
+    </script>
+  </body>
+</html>
