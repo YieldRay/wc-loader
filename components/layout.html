@@ -15,18 +15,15 @@
 
 <script type="module">
   import confetti from "canvas-confetti";
-  import { loadComponent } from "../lib.js";
+  import { loadComponent } from "../dist/index.js";
   loadComponent("my-header", "./header.html");
 
   export default class MyLayout extends HTMLElement {
     connectedCallback() {
       this.shadowRoot.querySelector("footer").textContent = navigator.userAgent;
-      this.shadowRoot.querySelector("main").addEventListener("click", (e) => {
-        confetti({
-          particleCount: 20,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+      const main = this.shadowRoot.querySelector("main");
+      main.addEventListener("click", (e) => {
+        if (e.target === main) confetti();
       });
     }
   }

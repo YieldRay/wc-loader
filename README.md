@@ -1,10 +1,10 @@
-# lib.js Documentation
+# Documentation
 
 A JavaScript library for dynamic component loading with ES module support and web component integration.
 
 ## Overview
 
-lib.js provides functionality to dynamically load and register web components from HTML files containing ES modules. It handles module rewriting, URL resolution, and component lifecycle management with shadow DOM support.
+It provides functionality to dynamically load and register web components from HTML files containing ES modules. It handles module rewriting, URL resolution, and component lifecycle management with shadow DOM support.
 
 ## Key Features
 
@@ -23,11 +23,13 @@ lib.js provides functionality to dynamically load and register web components fr
 Loads and registers a web component from an HTML file or directory.
 
 **Parameters:**
+
 - `name` (string): The custom element name to register
 - `url` (string): The URL of the HTML file or directory containing the component
 - `afterConstructor` (function, optional): Callback function executed after component construction
 
 **Returns:**
+
 - Promise<Constructor>: The registered web component constructor
 
 **Examples:**
@@ -42,12 +44,13 @@ loadComponent("my-layout", "./components/layout.html");
 loadComponent("demo-component", "./components/demo-component/");
 
 // Load with afterConstructor callback
-loadComponent("my-modal", "./components/modal.html", function() {
-  this.addEventListener('close', () => console.log('Modal closed'));
+loadComponent("my-modal", "./components/modal.html", function () {
+  this.addEventListener("close", () => console.log("Modal closed"));
 });
 ```
 
 **Behavior:**
+
 - If URL ends with `/`, it depends on the server to serve the appropriate file (typically `index.html`)
 - Resolves relative URLs based on the calling file's location
 - Throws error if component name is already registered with different URL
@@ -59,9 +62,11 @@ loadComponent("my-modal", "./components/modal.html", function() {
 A dual-purpose helper function for component definition that works both in component context and document context.
 
 **Parameters:**
+
 - `fc` (function): Component function that receives a root element (shadow root or document)
 
 **Returns:**
+
 - When called from loadComponent context: Web component class
 - When called from normal document: Executes function with document as root
 
@@ -82,7 +87,7 @@ export default defineComponent((root) => {
 // In normal document context
 defineComponent((root) => {
   // Runs immediately with document as root
-  root.body.innerHTML = '<h1>App Initialized</h1>';
+  root.body.innerHTML = "<h1>App Initialized</h1>";
 });
 ```
 
@@ -142,6 +147,7 @@ components/demo-component/
 ```
 
 **index.html:**
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -169,6 +175,7 @@ components/demo-component/
 ```
 
 **js/index.js:**
+
 ```javascript
 import { loadComponent, defineComponent } from "../../../lib.js";
 
@@ -185,6 +192,7 @@ export default defineComponent((root) => {
 ```
 
 **css/index.css:**
+
 ```css
 time {
   font-family: monospace;
@@ -221,11 +229,7 @@ Components can use slots for content projection:
     connectedCallback() {
       this.shadowRoot.querySelector("footer").textContent = navigator.userAgent;
       this.shadowRoot.querySelector("main").addEventListener("click", (e) => {
-        confetti({
-          particleCount: 20,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        confetti();
       });
     }
   }
@@ -293,6 +297,7 @@ export { default } from "./js/index.js";
 ## Loading Components in Main Application
 
 **index.html:**
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -301,7 +306,9 @@ export { default } from "./js/index.js";
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WCLoader</title>
     <style>
-      :root, body, my-layout {
+      :root,
+      body,
+      my-layout {
         margin: 0;
         height: 100%;
       }
@@ -339,8 +346,7 @@ Use `:host` to style the component element itself:
 Link to external CSS files:
 
 ```html
-<link rel="stylesheet" href="https://unpkg.com/landsoul" />
-<link rel="stylesheet" href="./css/component.css" />
+<link rel="stylesheet" href="https://unpkg.com/landsoul" /> <link rel="stylesheet" href="./css/component.css" />
 ```
 
 ### Global Styles
@@ -349,10 +355,12 @@ Add `global` attribute to apply styles to the entire document:
 
 ```html
 <style global>
-  :root { --primary-color: blue; }
+  :root {
+    --primary-color: blue;
+  }
 </style>
 
-<link rel="stylesheet" href="global.css" global>
+<link rel="stylesheet" href="global.css" global />
 ```
 
 ## Advanced Features
@@ -406,6 +414,7 @@ The library automatically rewrites ES module imports:
 ### URL Resolution
 
 Import URLs are resolved based on the calling context:
+
 - Uses stack trace analysis to determine the importer file
 - Resolves relative URLs against the importer's location
 - Handles blob URLs created by the module system
@@ -425,18 +434,21 @@ Import URLs are resolved based on the calling context:
 ### Common Errors
 
 **Component Name Conflict:**
+
 ```javascript
 // Error: Component name "my-button" is already being used
-await loadComponent('my-button', './different-button.html');
+await loadComponent("my-button", "./different-button.html");
 ```
 
 **Invalid Component Export:**
+
 ```javascript
 // Error: Default export is not a web component constructor
 // Component must export HTMLElement subclass or use defineComponent
 ```
 
 **Module Load Failure:**
+
 ```javascript
 // Error: Failed to load module script: ./missing.js, status: 404
 ```

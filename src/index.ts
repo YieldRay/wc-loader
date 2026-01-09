@@ -1,8 +1,7 @@
-import { parse } from "https://esm.sh/es-module-lexer/js";
-import * as stackTraceParser from "https://esm.sh/stacktrace-parser";
-// TODO: we need to add a esbuild or rollup step later to pre-bundle es-module-lexer and stacktrace-parser
+import { parse } from "es-module-lexer/js";
+import * as stackTraceParser from "stacktrace-parser";
 
-function rewriteModule(code, sourceUrl) {
+function rewriteModule(code: string, sourceUrl: string): string {
   const [imports] = parse(code);
 
   const rewritableImports = imports.filter((i) => {
@@ -29,7 +28,7 @@ function rewriteModule(code, sourceUrl) {
   return `import.meta.url=${JSON.stringify(sourceUrl)};\n${code}`;
 }
 
-function isBrowserUrl(url) {
+function isBrowserUrl(url: string): boolean {
   return (
     url.startsWith("http://") ||
     url.startsWith("https://") ||
@@ -39,11 +38,11 @@ function isBrowserUrl(url) {
 }
 
 // track blob URLs to their original source URLs
-const blobMap = new Map();
+const blobMap = new Map<string, string>();
 // track components loaded by loadComponent(), name -> {url, component}
-const loadedComponentsRecord = new Map();
+const loadedComponentsRecord = new Map<string, { url: string; cec: CustomElementConstructor }>();
 
-async function esm(code, sourceUrl) {
+async function esm(code: string, sourceUrl: string): Promise<any> {
   code = rewriteModule(code, sourceUrl);
 
   const blob = new Blob([code], { type: "text/javascript" });
@@ -59,7 +58,7 @@ async function esm(code, sourceUrl) {
 }
 
 function getImporterUrl() {
-  const stack = stackTraceParser.parse(new Error().stack);
+  const stack = stackTraceParser.parse(new Error().stack!);
   for (const { file } of stack) {
     if (file && file !== import.meta.url) {
       if (file.startsWith("blob:")) {
@@ -76,23 +75,25 @@ function getImporterUrl() {
   return null;
 }
 
-export async function loadComponent(name, url, afterConstructor) {
+export async function loadComponent(
+  name: string,
+  url: string,
+  afterConstructor?: VoidFunction
+): Promise<CustomElementConstructor> {
   // when load a component, the url is relative to the importer file
   const importerUrl = getImporterUrl() || location.href;
   url = new URL(url, importerUrl).href;
 
   if (customElements.get(name)) {
-    const component = customElements.get(name);
     if (!loadedComponentsRecord.has(name)) {
-      // component name is not defined via loadComponent before
-      throw new Error(`Component name ${JSON.stringify(name)} is already being used`, component);
+      // component name is not defined via loadComponent before, we cannot define it again
+      throw new Error(`Component name ${JSON.stringify(name)} is already being used`);
     }
-    const loadedComponentRecord = loadedComponentsRecord.get(name);
+
+    const loadedComponentRecord = loadedComponentsRecord.get(name)!;
     if (loadedComponentRecord.url === url) {
-      return loadedComponentRecord.component;
+      return loadedComponentRecord.cec;
     }
-    // one component name should only map to one URL, this is how we cache components
-    throw new Error(`Component ${name} is already defined with a different URL`, loadedComponentRecord.url);
   }
 
   // TODO: we may allow custom the fetch function
@@ -104,19 +105,19 @@ export async function loadComponent(name, url, afterConstructor) {
   // rewrite all script[src] to absolute URLs
   for (const script of doc.querySelectorAll("script[src]")) {
     const src = new URL(
-      script.getAttribute("src"), // getAttribute to avoid getting absolute URL directly, do not use script.src
+      script.getAttribute("src") || "", // getAttribute to avoid getting absolute URL directly, do not use script.src
       url
     ).href;
-    script.src = src;
+    (script as HTMLScriptElement).src = src;
   }
 
   // rewrite all link[href] to absolute URLs
   for (const link of doc.querySelectorAll("link[href]")) {
     const href = new URL(
-      link.getAttribute("href"), // getAttribute to avoid getting absolute URL directly, do not use link.href
+      link.getAttribute("href") || "", // getAttribute to avoid getting absolute URL directly, do not use link.href
       url
     ).href;
-    link.href = href;
+    (link as HTMLLinkElement).href = href;
   }
 
   const adoptedStyleSheets = [];
@@ -127,9 +128,9 @@ export async function loadComponent(name, url, afterConstructor) {
     // this match <link rel="stylesheet" adopted>
     // we doubt if we should extend html standard like this
     // however, we do need a way to load style in sync to avoid FOUC
-    const res = await fetch(link.href);
+    const res = await fetch((link as HTMLLinkElement).href);
     if (!res.ok) {
-      throw new Error(`Failed to load adopted stylesheet: ${link.href}, status: ${res.status}`);
+      throw new Error(`Failed to load adopted stylesheet: ${(link as HTMLLinkElement).href}, status: ${res.status}`);
     }
     const style = await res.text();
     const sheet = new CSSStyleSheet();
@@ -141,9 +142,9 @@ export async function loadComponent(name, url, afterConstructor) {
   // note that we do NOT rewrite dynamic style import in <style>@import url(...)</style> at this moment
 
   // the final exported module, composed to a single one
-  const result = {};
+  const result: any = {};
   for (const script of doc.querySelectorAll('script[type="module"]')) {
-    const src = script.src;
+    const src = (script as HTMLScriptElement).src;
     if (src) {
       // we do not use dynamic import() here because we need to rewrite the import URLs inside the module code
       // const module = await import(src);
@@ -183,32 +184,39 @@ export async function loadComponent(name, url, afterConstructor) {
   // and there is NO need to write a <body> tag in the component html file
 
   if (!component || !defaultExportIsComponent) {
-    const impl = extendsElement(HTMLElement, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
-    customElements.define(name, impl);
-    loadedComponentsRecord.set(name, { component: impl, url });
-    return impl;
+    const cec = extendsElement(HTMLElement, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
+    customElements.define(name, cec);
+    loadedComponentsRecord.set(name, { cec, url });
+    return cec;
   }
 
-  const impl = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
-  customElements.define(name, impl);
-  loadedComponentsRecord.set(name, { component: impl, url });
-  return impl;
+  const cec = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
+  customElements.define(name, cec);
+  loadedComponentsRecord.set(name, { cec, url });
+  return cec;
 }
 
-function extendsElement(BaseClass = HTMLElement, innerHTML, adoptedStyleSheets, afterConstructor) {
+function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElement>(
+  BaseClass: BaseClass = HTMLElement as BaseClass,
+  innerHTML: string,
+  adoptedStyleSheets?: CSSStyleSheet[],
+  afterConstructor?: VoidFunction
+): CustomElementConstructor {
   // we doubt if this is a good way
   // since the user provider a web component class,
   // then we create a subclass for it that injects shadow root
 
+  //@ts-ignore
   return class extends BaseClass {
-    constructor() {
+    constructor(...args: any[]) {
       //! we provide an extra argument to user's component constructor
-      super(innerHTML);
+      //@ts-ignore
+      super(innerHTML, adoptedStyleSheets);
       //! if the user constructor do not create shadow root, we will create one here
       if (!this.shadowRoot) {
         const shadowRoot = this.attachShadow({ mode: "open" });
         shadowRoot.innerHTML = innerHTML;
-        if (adoptedStyleSheets?.length > 0) {
+        if (adoptedStyleSheets && adoptedStyleSheets.length > 0) {
           shadowRoot.adoptedStyleSheets = adoptedStyleSheets;
         }
       }
@@ -216,7 +224,7 @@ function extendsElement(BaseClass = HTMLElement, innerHTML, adoptedStyleSheets, 
         afterConstructor.call(this);
       }
     }
-  };
+  } as BaseClass;
 }
 
 /**
@@ -224,8 +232,8 @@ function extendsElement(BaseClass = HTMLElement, innerHTML, adoptedStyleSheets, 
  * - when used inside loadComponent-imported module, it defines a web component class
  * - when used in normal document context, it just runs the function with document as root
  */
-export function defineComponent(fc) {
-  const whoDefineMe = stackTraceParser.parse(new Error().stack).at(-1).file;
+export function defineComponent(fc: (root: Document | ShadowRoot) => void): any {
+  const whoDefineMe = stackTraceParser.parse(new Error().stack!).at(-1)!.file!;
 
   if (blobMap.has(whoDefineMe)) {
     return class extends HTMLElement {
@@ -238,7 +246,7 @@ export function defineComponent(fc) {
   return fc.call(globalThis, document);
 }
 
-function filterGlobalStyle(doc) {
+function filterGlobalStyle(doc: Document) {
   // all style tag and link[rel="stylesheet"] with global attribute
 
   for (const styleElement of doc.querySelectorAll("style")) {
@@ -262,7 +270,7 @@ function filterGlobalStyle(doc) {
   }
 }
 
-function matchCSSAtImport(code) {
+function matchCSSAtImport(code: string) {
   // two cases:
   // @import "url" ...
   // @import url("url") ...
@@ -285,7 +293,7 @@ function matchCSSAtImport(code) {
   return imports;
 }
 
-function matchCSSUrlFunction(code) {
+function matchCSSUrlFunction(code: string) {
   // match url("...") or url('...') or url(...)
   const regex = /url\(\s*["']?([^"')]+)["']?\s*\)/g;
 
@@ -306,7 +314,7 @@ function matchCSSUrlFunction(code) {
 // (or inject CSSStyleSheet via CSSOM API),
 // so the rewritten code cannot preserve the original link tag, which is a behavior change
 // so now we should NOT use a relative css @import() rule in component html files
-function rewriteCSSImports(code, sourceUrl) {
+function rewriteCSSImports(code: string, sourceUrl: string) {
   const imports = matchCSSAtImport(code);
 
   for (const importEntry of imports.reverse()) {

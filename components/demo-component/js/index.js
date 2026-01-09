@@ -1,4 +1,4 @@
-import { loadComponent, defineComponent } from "../../../lib.js";
+import { loadComponent, defineComponent } from "../../../dist/index.js";
 loadComponent("demo-counter", "../../demo-counter/");
 
 function getNow() {
