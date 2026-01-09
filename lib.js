@@ -119,6 +119,25 @@ export async function loadComponent(name, url, afterConstructor) {
     link.href = href;
   }
 
+  const adoptedStyleSheets = [];
+  for (const link of doc.querySelectorAll(`link[rel="stylesheet"]`)) {
+    if (!link.hasAttribute("adopted")) {
+      continue;
+    }
+    // this match <link rel="stylesheet" adopted>
+    // we doubt if we should extend html standard like this
+    // however, we do need a way to load style in sync to avoid FOUC
+    const res = await fetch(link.href);
+    if (!res.ok) {
+      throw new Error(`Failed to load adopted stylesheet: ${link.href}, status: ${res.status}`);
+    }
+    const style = await res.text();
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(style);
+    adoptedStyleSheets.push(sheet);
+    link.remove();
+  }
+
   // note that we do NOT rewrite dynamic style import in <style>@import url(...)</style> at this moment
 
   // the final exported module, composed to a single one
@@ -164,19 +183,19 @@ export async function loadComponent(name, url, afterConstructor) {
   // and there is NO need to write a <body> tag in the component html file
 
   if (!component || !defaultExportIsComponent) {
-    const impl = extendsElement(HTMLElement, doc.body.innerHTML, afterConstructor);
+    const impl = extendsElement(HTMLElement, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
     customElements.define(name, impl);
     loadedComponentsRecord.set(name, { component: impl, url });
     return impl;
   }
 
-  const impl = extendsElement(component, doc.body.innerHTML, afterConstructor);
+  const impl = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
   customElements.define(name, impl);
   loadedComponentsRecord.set(name, { component: impl, url });
   return impl;
 }
 
-function extendsElement(BaseClass = HTMLElement, innerHTML, afterConstructor) {
+function extendsElement(BaseClass = HTMLElement, innerHTML, adoptedStyleSheets, afterConstructor) {
   // we doubt if this is a good way
   // since the user provider a web component class,
   // then we create a subclass for it that injects shadow root
@@ -187,7 +206,11 @@ function extendsElement(BaseClass = HTMLElement, innerHTML, afterConstructor) {
       super(innerHTML);
       //! if the user constructor do not create shadow root, we will create one here
       if (!this.shadowRoot) {
-        this.attachShadow({ mode: "open" }).innerHTML = innerHTML;
+        const shadowRoot = this.attachShadow({ mode: "open" });
+        shadowRoot.innerHTML = innerHTML;
+        if (adoptedStyleSheets?.length > 0) {
+          shadowRoot.adoptedStyleSheets = adoptedStyleSheets;
+        }
       }
       if (afterConstructor) {
         afterConstructor.call(this);
