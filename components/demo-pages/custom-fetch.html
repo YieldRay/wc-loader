@@ -11,14 +11,15 @@
     </main>
 
     <script type="module">
-      import { loadComponent, defineFetch } from "../dist/index.bundled.js";
+      import { loadComponent, defineFetch } from "../../dist/index.bundled.js";
       defineFetch(async (input, init) => {
         console.log("Custom fetch called for:", input);
         const url = new Request(input, init).url;
-        return fetch(`https://proxy.scalar.com/?scalar_url=${encodeURIComponent(url)}`);
+        const res = await fetch(`https://proxy.scalar.com/?scalar_url=${encodeURIComponent(url)}`);
+        return res;
       });
 
-      const url = "https://sqlite.org/";
+      const url = new URL(location.href).searchParams.get("url") || "https://sqlite.org/";
 
       // you can see that this demo works just like micro frontend
       loadComponent("embed-page", url, function () {
@@ -43,7 +44,7 @@
               // always insert :host {display: block;}
               sheet.insertRule(":host { display: block; }", 0);
               if (rule.selectorText.includes("body")) {
-                const newSelector = rule.selectorText.replace(/body/g, ":host");
+                const newSelector = rule.selectorText.replace(/\s+?(body)/g, ":host");
                 const newRule = `${newSelector} { ${rule.style.cssText} }`;
                 sheet.deleteRule(Array.from(sheet.cssRules).indexOf(rule));
                 sheet.insertRule(newRule, index);

@@ -152,6 +152,17 @@ function filterGlobalStyle(doc: Document) {
   }
 }
 
+function cssStyleSheetFromText(styleText: string, userFriendlySource: string): CSSStyleSheet {
+  const sheet = new CSSStyleSheet();
+  try {
+    sheet.replaceSync(styleText);
+  } catch (error) {
+    // do not crash on invalid CSS
+    warn(`Failed to create CSSStyleSheet at ${userFriendlySource}`, error);
+  }
+  return sheet;
+}
+
 async function collectAdoptedStyleSheets(doc: Document): Promise<CSSStyleSheet[]> {
   const adoptedStyleSheets = [];
 
@@ -165,8 +176,7 @@ async function collectAdoptedStyleSheets(doc: Document): Promise<CSSStyleSheet[]
       },
     );
     if (!styleText) continue; // skip empty style
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(styleText);
+    const sheet = cssStyleSheetFromText(styleText, link.outerHTML);
     adoptedStyleSheets.push(sheet);
     link.remove();
   }
@@ -174,8 +184,7 @@ async function collectAdoptedStyleSheets(doc: Document): Promise<CSSStyleSheet[]
   for (const style of doc.querySelectorAll("style")) {
     const styleText = style.innerHTML;
     if (!styleText) continue; // skip empty style
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(styleText);
+    const sheet = cssStyleSheetFromText(styleText, style.outerHTML);
     adoptedStyleSheets.push(sheet);
     style.remove();
   }
