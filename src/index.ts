@@ -102,77 +102,20 @@ export async function loadComponent(
   filterGlobalStyle(doc);
   // now [global] styles are moved to the outer document, there is no [global] styles in doc
 
-  // rewrite all script[src] to absolute URLs
-  for (const script of doc.querySelectorAll("script[src]")) {
-    const src = new URL(
-      script.getAttribute("src") || "", // getAttribute to avoid getting absolute URL directly, do not use script.src
-      url
-    ).href;
-    (script as HTMLScriptElement).src = src;
-  }
+  rewriteStyleAndScript(doc, url);
 
-  // rewrite all link[href] to absolute URLs
-  for (const link of doc.querySelectorAll("link[href]")) {
-    const href = new URL(
-      link.getAttribute("href") || "", // getAttribute to avoid getting absolute URL directly, do not use link.href
-      url
-    ).href;
-    (link as HTMLLinkElement).href = href;
-  }
-
-  const adoptedStyleSheets = [];
-  for (const link of doc.querySelectorAll(`link[rel="stylesheet"]`)) {
-    if (!link.hasAttribute("adopted")) {
-      continue;
-    }
-    // this match <link rel="stylesheet" adopted>
-    // we doubt if we should extend html standard like this
-    // however, we do need a way to load style in sync to avoid FOUC
-    const res = await fetch((link as HTMLLinkElement).href);
-    if (!res.ok) {
-      throw new Error(`Failed to load adopted stylesheet: ${(link as HTMLLinkElement).href}, status: ${res.status}`);
-    }
-    const style = await res.text();
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(style);
-    adoptedStyleSheets.push(sheet);
-    link.remove();
-  }
+  // remove all styles to be adoptedStyleSheets
+  // which is necessary to avoid FOUC
+  const adoptedStyleSheets = await collectAdoptedStyleSheets(doc);
 
   // note that we do NOT rewrite dynamic style import in <style>@import url(...)</style> at this moment
 
-  // the final exported module, composed to a single one
-  const result: any = {};
-  for (const script of doc.querySelectorAll('script[type="module"]')) {
-    const src = (script as HTMLScriptElement).src;
-    if (src) {
-      // we do not use dynamic import() here because we need to rewrite the import URLs inside the module code
-      // const module = await import(src);
-      const res = await fetch(src);
-      // we do not allow <script type="module" src="vue"> to load https://esm.sh/vue directly
-      // it works just like "./vue"
-      if (!res.ok) {
-        // TODO: better error message, similar to browser error when failed in dynamic import()
-        throw new Error(`Failed to load module script: ${src}, status: ${res.status}`);
-      }
-      const code = await res.text();
-      const module = await esm(code, res.url);
-      Object.assign(result, module);
-    } else {
-      const module = await esm(script.textContent, url);
-      Object.assign(result, module);
-    }
-    script.remove();
-  }
+  const result = await evaluateModules(doc, url);
   // now all script[type="module"] are removed from doc
 
-  // move all style to body instead of head, because we will only use doc.body.innerHTML later
-  for (const selector of ["style", 'link[rel="stylesheet"]', "script"]) {
-    // a script tag without type="module" is also moved to body and then injected to shadow root
-    // but use a bare script tag is not recommended, so we may add a warning later
-    for (const el of doc.querySelectorAll(selector)) {
-      doc.body.prepend(el);
-    }
+  // move all script to body instead of head, because we will only use doc.body.innerHTML later
+  for (const el of doc.querySelectorAll("script")) {
+    doc.body.prepend(el);
   }
   // a normal script tag that is not a module will be injected into the shadow root and executed there
 
@@ -268,6 +211,78 @@ function filterGlobalStyle(doc: Document) {
       }
     }
   }
+}
+
+async function collectAdoptedStyleSheets(doc: Document): Promise<CSSStyleSheet[]> {
+  const adoptedStyleSheets = [];
+  for (const link of doc.querySelectorAll(`link[rel="stylesheet"]`)) {
+    // this match <link rel="stylesheet" href="...">
+    const res = await fetch((link as HTMLLinkElement).href);
+    if (!res.ok) {
+      throw new Error(`Failed to load adopted stylesheet: ${(link as HTMLLinkElement).href}, status: ${res.status}`);
+    }
+    const styleText = await res.text();
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(styleText);
+    adoptedStyleSheets.push(sheet);
+    link.remove();
+  }
+  for (const style of doc.querySelectorAll("style")) {
+    const styleText = style.innerHTML || "";
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(styleText);
+    adoptedStyleSheets.push(sheet);
+    style.remove();
+  }
+  return adoptedStyleSheets;
+}
+
+function rewriteStyleAndScript(doc: Document, url: string) {
+  // rewrite all script[src] to absolute URLs
+  for (const script of doc.querySelectorAll("script[src]")) {
+    const src = new URL(
+      script.getAttribute("src") || "", // getAttribute to avoid getting absolute URL directly, do not use script.src
+      url
+    ).href;
+    (script as HTMLScriptElement).src = src;
+  }
+
+  // rewrite all link[href] to absolute URLs
+  for (const link of doc.querySelectorAll("link[href]")) {
+    const href = new URL(
+      link.getAttribute("href") || "", // getAttribute to avoid getting absolute URL directly, do not use link.href
+      url
+    ).href;
+    (link as HTMLLinkElement).href = href;
+  }
+}
+
+async function evaluateModules(doc: Document, url: string) {
+  // the final exported module, composed to a single one
+
+  const result: any = {};
+  for (const script of doc.querySelectorAll('script[type="module"]')) {
+    const src = (script as HTMLScriptElement).src;
+    if (src) {
+      // we do not use dynamic import() here because we need to rewrite the import URLs inside the module code
+      // const module = await import(src);
+      const res = await fetch(src);
+      // we do not allow <script type="module" src="vue"> to load https://esm.sh/vue directly
+      // it works just like "./vue"
+      if (!res.ok) {
+        // TODO: better error message, similar to browser error when failed in dynamic import()
+        throw new Error(`Failed to load module script: ${src}, status: ${res.status}`);
+      }
+      const code = await res.text();
+      const module = await esm(code, res.url);
+      Object.assign(result, module);
+    } else {
+      const module = await esm(script.textContent, url);
+      Object.assign(result, module);
+    }
+    script.remove();
+  }
+  return result;
 }
 
 function matchCSSAtImport(code: string) {
