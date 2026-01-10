@@ -1,4 +1,4 @@
-import { loadComponent, defineComponent } from "../../../dist/index.js";
+import { loadComponent, defineComponent } from "../../../dist/index.bundled.js";
 loadComponent("demo-counter", "../../demo-counter/");
 
 function getNow() {
