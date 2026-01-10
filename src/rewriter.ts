@@ -28,12 +28,13 @@ function rewriteModule(code: string, sourceUrl: string): string {
   return `import.meta.url=${JSON.stringify(sourceUrl)};\n${code}`;
 }
 
-function isBrowserUrl(url: string): boolean {
+export function isBrowserUrl(url: string): boolean {
   return (
     url.startsWith("http://") ||
     url.startsWith("https://") ||
     url.startsWith("blob:http://") ||
-    url.startsWith("blob:https://")
+    url.startsWith("blob:https://") ||
+    url.startsWith("data:")
   );
 }
 
@@ -83,8 +84,8 @@ function matchCSSAtImport(code: string) {
   const regex2 = /@import\s+url\(\s*["']?([^"')]+)["']?\s*\)/g;
 
   // {s: start index, e: end index, url: the matched url}
-  const imports = [];
-  let match;
+  const imports: Array<{ s: number; e: number; url: string }> = [];
+  let match: RegExpExecArray | null;
 
   while ((match = regex1.exec(code)) !== null) {
     imports.push({ s: match.index + 8, e: match.index + 8 + match[1].length, url: match[1] });
@@ -102,8 +103,8 @@ function matchCSSUrlFunction(code: string) {
   const regex = /url\(\s*["']?([^"')]+)["']?\s*\)/g;
 
   // {s: start index, e: end index, url: the matched url}
-  const urls = [];
-  let match;
+  const urls: Array<{ s: number; e: number; url: string }> = [];
+  let match: RegExpExecArray | null;
 
   while ((match = regex.exec(code)) !== null) {
     urls.push({ s: match.index + 4, e: match.index + 4 + match[1].length, url: match[1] });
@@ -135,7 +136,7 @@ function rewriteCSSImports(code: string, sourceUrl: string) {
   for (const urlEntry of urls.reverse()) {
     const specifier = urlEntry.url;
 
-    if (!isBrowserUrl(specifier) && !specifier.startsWith("data:")) {
+    if (!isBrowserUrl(specifier)) {
       const rewritten = new URL(specifier, sourceUrl).href;
       code = code.slice(0, urlEntry.s) + rewritten + code.slice(urlEntry.e);
     }

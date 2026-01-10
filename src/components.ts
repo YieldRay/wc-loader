@@ -1,5 +1,7 @@
 import * as stackTraceParser from "stacktrace-parser";
-import { blobMap, esm, getImporterUrl } from "./rewriter.ts";
+import { blobMap, esm, getImporterUrl, isBrowserUrl } from "./rewriter.ts";
+import { requestText, request } from "./network.ts";
+import { WCLoaderError, warn } from "./error.ts";
 
 const loadedComponentsRecord = new Map<string, { url: string; cec: CustomElementConstructor }>();
 
@@ -15,7 +17,7 @@ export async function loadComponent(
   if (customElements.get(name)) {
     if (!loadedComponentsRecord.has(name)) {
       // component name is not defined via loadComponent before, we cannot define it again
-      throw new Error(`Component name ${JSON.stringify(name)} is already being used`);
+      throw new WCLoaderError(`Component name ${JSON.stringify(name)} is already being used`);
     }
 
     const loadedComponentRecord = loadedComponentsRecord.get(name)!;
@@ -25,7 +27,10 @@ export async function loadComponent(
   }
 
   // TODO: we may allow custom the fetch function
-  const html = await fetch(url).then((res) => res.text());
+  const html = await requestText(
+    url,
+    `loadComponent(${JSON.stringify(name)}, ${JSON.stringify(url)})`,
+  );
   const doc = new DOMParser().parseFromString(html, "text/html");
   filterGlobalStyle(doc);
   // now [global] styles are moved to the outer document, there is no [global] styles in doc
@@ -55,6 +60,12 @@ export async function loadComponent(
   // and there is NO need to write a <body> tag in the component html file
 
   if (!component || !defaultExportIsComponent) {
+    if (!defaultExportIsComponent) {
+      warn(
+        `The default export of component ${JSON.stringify(name)} loaded from ${url} is not a web component class`,
+        component,
+      );
+    }
     const cec = extendsElement(
       HTMLElement,
       doc.body.innerHTML,
@@ -109,6 +120,7 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
  * - when used in normal document context, it just runs the function with document as root
  */
 export function defineComponent(fc: (root: Document | ShadowRoot) => void): any {
+  // note that files in src/* are always bundled, so we can use stack trace to detect who call the entry point
   const whoDefineMe = stackTraceParser.parse(new Error().stack!).at(-1)!.file!;
 
   if (blobMap.has(whoDefineMe)) {
@@ -128,42 +140,40 @@ function filterGlobalStyle(doc: Document) {
   for (const styleElement of doc.querySelectorAll("style")) {
     if (styleElement.hasAttribute("global")) {
       document.head.append(styleElement);
-
-      if (doc.contains(styleElement)) {
-        styleElement.remove();
-      }
+      // move to outer document, no need to remove from doc, append will remove it automatically
     }
   }
 
   for (const linkElement of doc.querySelectorAll('link[rel="stylesheet"]')) {
     if (linkElement.hasAttribute("global")) {
       document.head.append(linkElement);
-
-      if (doc.contains(linkElement)) {
-        linkElement.remove();
-      }
+      // move to outer document, no need to remove from doc, append will remove it automatically
     }
   }
 }
 
 async function collectAdoptedStyleSheets(doc: Document): Promise<CSSStyleSheet[]> {
   const adoptedStyleSheets = [];
+
   for (const link of doc.querySelectorAll(`link[rel="stylesheet"]`)) {
     // this match <link rel="stylesheet" href="...">
-    const res = await fetch((link as HTMLLinkElement).href);
-    if (!res.ok) {
-      throw new Error(
-        `Failed to load adopted stylesheet: ${(link as HTMLLinkElement).href}, status: ${res.status}`,
-      );
-    }
-    const styleText = await res.text();
+    const styleText = await requestText((link as HTMLLinkElement).href, link.outerHTML).catch(
+      (error) => {
+        warn(`Failed to load ${link.outerHTML}`, error);
+        // just like the html, failed <link rel="stylesheet"> will not break the document
+        return "";
+      },
+    );
+    if (!styleText) continue; // skip empty style
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(styleText);
     adoptedStyleSheets.push(sheet);
     link.remove();
   }
+
   for (const style of doc.querySelectorAll("style")) {
-    const styleText = style.innerHTML || "";
+    const styleText = style.innerHTML;
+    if (!styleText) continue; // skip empty style
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(styleText);
     adoptedStyleSheets.push(sheet);
@@ -190,6 +200,12 @@ function rewriteStyleAndScript(doc: Document, url: string) {
     ).href;
     (link as HTMLLinkElement).href = href;
   }
+
+  // note that we do NOT rewrite style @import(...) here
+  // and since the style will be injected into adoptedStyleSheets
+  // and @import rules are not allowed in new CSSStyleSheet()
+  // so there is also no need to rewrite them
+  // as a result, we are NOT allowed to use @import in component html files
 }
 
 async function evaluateModules(doc: Document, url: string) {
@@ -199,15 +215,7 @@ async function evaluateModules(doc: Document, url: string) {
   for (const script of doc.querySelectorAll('script[type="module"]')) {
     const src = (script as HTMLScriptElement).src;
     if (src) {
-      // we do not use dynamic import() here because we need to rewrite the import URLs inside the module code
-      // const module = await import(src);
-      const res = await fetch(src);
-      // we do not allow <script type="module" src="vue"> to load https://esm.sh/vue directly
-      // it works just like "./vue"
-      if (!res.ok) {
-        // TODO: better error message, similar to browser error when failed in dynamic import()
-        throw new Error(`Failed to load module script: ${src}, status: ${res.status}`);
-      }
+      const res = await request(src, script.outerHTML);
       const code = await res.text();
       const module = await esm(code, res.url);
       Object.assign(result, module);

@@ -9,28 +9,29 @@ const run = async () => {
     banner: {
       js: "// dependencies loaded from esm.sh",
     },
-  }).catch(() => process.exit(1));
+  });
 
   await build({
     outfile: "dist/index.bundled.js",
     banner: {
       js: "// all dependencies bundled",
     },
-  }).catch(() => process.exit(1));
+  });
 
   console.log("Build completed.");
 };
 
 if (process.argv.includes("--dev")) {
+  await run();
   console.log("Watching files for changes...");
   watchFiles(["src/**/*"], (eventType, filename) => {
     if (!eventType) return;
     console.log(`${filename} changed (${eventType}), rebuilding...`);
-    run();
+    run().catch(console.error);
   });
 } else {
   console.log("Building...");
-  run();
+  run().catch(() => process.exit(1));
 }
 
 const esmShPlugin: Plugin = {
@@ -65,7 +66,7 @@ function watchFiles(patterns: string[], listener: fs.WatchListener<string>) {
   const watchers = files.map((file) =>
     fs.watch(file, { recursive: true }, (event, filename) => {
       listener(event, filename);
-    })
+    }),
   );
   return {
     close: () => {
