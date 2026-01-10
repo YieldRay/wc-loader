@@ -1,39 +1,7 @@
 import esbuild from "esbuild";
-import type { BuildOptions, Plugin } from "esbuild";
+import type { BuildOptions } from "esbuild";
 import process from "node:process";
 import fs from "node:fs";
-
-const esmShPlugin: Plugin = {
-  name: "rewrite-to-esm-sh",
-  setup(build) {
-    build.onResolve({ filter: /^[^.\/]/ }, (args) => {
-      if (args.path.startsWith("http")) return;
-
-      return {
-        path: `https://esm.sh/${args.path}`,
-        external: true,
-      };
-    });
-  },
-};
-
-async function run() {
-  await build({
-    plugins: [esmShPlugin],
-    banner: {
-      js: "// dependencies loaded from esm.sh",
-    },
-  });
-
-  await build({
-    outfile: "dist/index.bundled.js",
-    banner: {
-      js: "// all dependencies bundled",
-    },
-  });
-
-  console.log("Build completed.");
-}
 
 if (process.argv.includes("--dev")) {
   await run();
@@ -49,6 +17,57 @@ if (process.argv.includes("--dev")) {
     console.error(error);
     process.exit(1);
   });
+}
+
+async function run() {
+  await build({
+    outfile: "dist/index.js",
+    banner: {
+      js: "// entrypoint for bundler",
+    },
+    plugins: [
+      {
+        name: "external-deps",
+        setup(build) {
+          build.onResolve({ filter: /^[^.\/]/ }, (args) => {
+            return {
+              path: args.path,
+              external: true,
+            };
+          });
+        },
+      },
+    ],
+  });
+
+  await build({
+    outfile: "dist/index.cdn.js",
+    banner: {
+      js: "// dependencies loaded from esm.sh",
+    },
+    plugins: [
+      {
+        name: "esm-sh",
+        setup(build) {
+          build.onResolve({ filter: /^[^.\/]/ }, (args) => {
+            return {
+              path: `https://esm.sh/${args.path}`,
+              external: true,
+            };
+          });
+        },
+      },
+    ],
+  });
+
+  await build({
+    outfile: "dist/index.bundled.js",
+    banner: {
+      js: "// all dependencies bundled",
+    },
+  });
+
+  console.log("Build completed.");
 }
 
 async function build(options?: Partial<BuildOptions>) {

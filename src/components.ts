@@ -1,7 +1,8 @@
 import * as stackTraceParser from "stacktrace-parser";
-import { blobMap, esm, getImporterUrl, isBrowserUrl } from "./rewriter.ts";
+import { blobMap, esm, getImporterUrl } from "./rewriter.ts";
 import { requestText, request } from "./network.ts";
 import { WCLoaderError, warn } from "./error.ts";
+import { emit } from "./events.ts";
 
 const loadedComponentsRecord = new Map<string, { url: string; cec: CustomElementConstructor }>();
 
@@ -13,6 +14,9 @@ export async function loadComponent(
   // when load a component, the url is relative to the importer file
   const importerUrl = getImporterUrl() || location.href;
   url = new URL(url, importerUrl).href;
+
+  // url is the real, absolute URL of the component html file
+  emit("component-loading", { name, url });
 
   if (customElements.get(name)) {
     if (!loadedComponentsRecord.has(name)) {
@@ -65,22 +69,20 @@ export async function loadComponent(
     );
   }
 
-  if (!component || !defaultExportIsComponent) {
-    const cec = extendsElement(
-      HTMLElement,
-      doc.body.innerHTML,
-      adoptedStyleSheets,
-      afterConstructor,
-    );
+  // this is a helper closure to reduce code duplication
+  const define = (component: typeof HTMLElement, html: string) => {
+    const cec = extendsElement(component, html, adoptedStyleSheets, afterConstructor);
     customElements.define(name, cec);
+    emit("component-defined", { name, url });
     loadedComponentsRecord.set(name, { cec, url });
     return cec;
-  }
+  };
 
-  const cec = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
-  customElements.define(name, cec);
-  loadedComponentsRecord.set(name, { cec, url });
-  return cec;
+  if (!component || !defaultExportIsComponent) {
+    return define(HTMLElement, doc.body.innerHTML);
+  } else {
+    return define(component, doc.body.innerHTML);
+  }
 }
 
 function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElement>(

@@ -8,7 +8,10 @@
     "resolveJsonModule": true,
     "erasableSyntaxOnly": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "declaration": true,
+    "emitDeclarationOnly": true
   },
+  "include": ["src"],
   "exclude": ["**/*.test.*"]
 }

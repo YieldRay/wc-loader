@@ -28,7 +28,7 @@ function rewriteModule(code: string, sourceUrl: string): string {
   return `import.meta.url=${JSON.stringify(sourceUrl)};\n${code}`;
 }
 
-export function isBrowserUrl(url: string): boolean {
+function isBrowserUrl(url: string): boolean {
   return (
     url.startsWith("http://") ||
     url.startsWith("https://") ||
