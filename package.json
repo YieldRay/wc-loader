@@ -1,11 +1,15 @@
 {
   "type": "module",
   "scripts": {
-    "build": "node esbuild.ts"
+    "build": "node esbuild.ts",
+    "dev": "node esbuild.ts --dev"
   },
   "dependencies": {
     "es-module-lexer": "^2.0.0",
-    "esbuild": "^0.27.2",
     "stacktrace-parser": "^0.1.11"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.2",
+    "@types/node": "^25.0.5"
   }
 }

@@ -1,7 +1,37 @@
 import esbuild from "esbuild";
-//@ts-ignore no need to install @types/node
-import process from "node:process";
 import type { BuildOptions, Plugin } from "esbuild";
+import process from "node:process";
+import fs from "node:fs";
+
+const run = async () => {
+  await build({
+    plugins: [esmShPlugin],
+    banner: {
+      js: "// dependencies loaded from esm.sh",
+    },
+  }).catch(() => process.exit(1));
+
+  await build({
+    outfile: "dist/index.bundled.js",
+    banner: {
+      js: "// all dependencies bundled",
+    },
+  }).catch(() => process.exit(1));
+
+  console.log("Build completed.");
+};
+
+if (process.argv.includes("--dev")) {
+  console.log("Watching files for changes...");
+  watchFiles(["src/**/*"], (eventType, filename) => {
+    if (!eventType) return;
+    console.log(`${filename} changed (${eventType}), rebuilding...`);
+    run();
+  });
+} else {
+  console.log("Building...");
+  run();
+}
 
 const esmShPlugin: Plugin = {
   name: "rewrite-to-esm-sh",
@@ -27,19 +57,19 @@ async function build(options?: Partial<BuildOptions>) {
     minifyIdentifiers: false,
   };
 
-  return esbuild.build({ ...defaultOptions, ...options }).catch(() => process.exit(1));
+  return esbuild.build({ ...defaultOptions, ...options });
 }
 
-await build({
-  plugins: [esmShPlugin],
-  banner: {
-    js: "// dependencies loaded from esm.sh",
-  },
-});
-
-await build({
-  outfile: "dist/index.bundled.js",
-  banner: {
-    js: "// all dependencies bundled",
-  },
-});
+function watchFiles(patterns: string[], listener: fs.WatchListener<string>) {
+  const files = fs.globSync(patterns);
+  const watchers = files.map((file) =>
+    fs.watch(file, { recursive: true }, (event, filename) => {
+      listener(event, filename);
+    })
+  );
+  return {
+    close: () => {
+      watchers.forEach((watcher) => watcher.close());
+    },
+  };
+}

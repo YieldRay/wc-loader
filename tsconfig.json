@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "erasableSyntaxOnly": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "exclude": ["**/*.test.*"]
+}
