@@ -35,6 +35,7 @@ A helper function for dual-mode component definition:
 - Dynamic imports with relative paths are NOT supported.
 - Inside the ESM modules, the `from` syntax in import statements are rewritten to absolute URL, since all modules are actually loaded as blob URLs.
 - Since all styles are moved to `adoptedStyleSheets` in component's shadow root, we CANNOT use `@import` rules in styles.
+- Relative URLs in CSS (e.g., `background-image: url(./bg.png)`) are resolved relative to the main document (the page URL), not the component file URL.
 - Components loaded with the same name and URL are cached and reused.
 - Only `script[src]`'s src' `link[rel="stylesheet"]`'s href will be rewritten. Warn that `a[href]`/`img[src]`/etc with relative URLs in the HTML body will NOT be rewritten.
 
@@ -42,3 +43,4 @@ A helper function for dual-mode component definition:
 
 - Implement component debugger
 - Implement component bundler in both runtime and server-side
+- Consider to support rewriting relative URLs in CSS

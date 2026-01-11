@@ -1,67 +1,134 @@
+/**
+ * @fileoverview Component loading and registration system for Native SFC (Single File Components).
+ *
+ * This module provides the core functionality to:
+ * - Load HTML-based web components from external files
+ * - Parse and process component templates, styles, and scripts
+ * - Register custom elements with the browser's CustomElementRegistry
+ * - Handle style encapsulation via Shadow DOM and adoptedStyleSheets
+ *
+ * The component loading process:
+ * 1. Fetch the component HTML file
+ * 2. Extract and process global styles (move to document head)
+ * 3. Rewrite relative URLs in scripts and stylesheets to absolute URLs
+ * 4. Convert styles to CSSStyleSheet objects for adoptedStyleSheets (prevents FOUC)
+ * 5. Evaluate ES modules and extract the default export (component class)
+ * 6. Create an extended component class that injects shadow root with template
+ * 7. Register the component with customElements.define()
+ */
+
 import * as stackTraceParser from "stacktrace-parser";
 import { blobMap, esm, getImporterUrl } from "./rewriter.ts";
 import { requestText, request } from "./network.ts";
 import { NativeSFCError, warn } from "./error.ts";
 import { emit } from "./events.ts";
 
+/**
+ * Cache of loaded components to prevent duplicate definitions and enable reuse.
+ * Maps component name to its source URL and CustomElementConstructor.
+ */
 const loadedComponentsRecord = new Map<string, { url: string; cec: CustomElementConstructor }>();
 
+/**
+ * Load and register a web component from an HTML file.
+ *
+ * This is the primary entry point for loading Native SFC components.
+ * The HTML file can contain:
+ * - Template markup (the component's shadow DOM content)
+ * - `<style>` tags (scoped to the component's shadow DOM)
+ * - `<style global>` tags (injected into the main document)
+ * - `<script type="module">` (ES modules, default export should be the component class)
+ * - `<script>` (classic scripts, executed when component is instantiated)
+ * - `<link rel="stylesheet">` (external stylesheets, also supports `global` attribute)
+ *
+ * @param name - The custom element tag name (must contain a hyphen, e.g., "my-component")
+ * @param url - URL to the component HTML file (relative to the importer or absolute)
+ * @param afterConstructor - Optional callback invoked after component constructor completes
+ * @returns The CustomElementConstructor for the registered component
+ * @throws {NativeSFCError} If the component name is already registered by external code
+ *
+ * @example
+ * // Load and use a component
+ * await loadComponent('my-button', './components/my-button.html');
+ * document.body.innerHTML = '<my-button>Click me</my-button>';
+ */
 export async function loadComponent(
   name: string,
   url: string,
   afterConstructor?: VoidFunction,
 ): Promise<CustomElementConstructor> {
-  // when load a component, the url is relative to the importer file
+  // Resolve relative URL against the importer's location (the file that called loadComponent)
   const importerUrl = getImporterUrl() || location.href;
   url = new URL(url, importerUrl).href;
 
-  // url is the real, absolute URL of the component html file
+  // At this point, url is the fully resolved absolute URL of the component HTML file
   emit("component-loading", { name, url });
 
+  // Check if this component name is already registered in the browser
   if (customElements.get(name)) {
     if (!loadedComponentsRecord.has(name)) {
-      // component name is not defined via loadComponent before, we cannot define it again
+      // The component was registered externally (not via loadComponent)
+      // We cannot override it, so throw an error to prevent silent failures
       throw new NativeSFCError(`Component name ${JSON.stringify(name)} is already being used`);
     }
 
+    // Component was previously loaded via loadComponent - check if it's the same source
     const loadedComponentRecord = loadedComponentsRecord.get(name)!;
     if (loadedComponentRecord.url === url) {
+      // Same component from same URL - return cached constructor (idempotent behavior)
       return loadedComponentRecord.cec;
     }
+    // Note: If same name but different URL, we proceed to redefine (hot-reload scenario)
   }
 
+  // Fetch the component HTML source code
   const html = await requestText(
     url,
     `loadComponent(${JSON.stringify(name)}, ${JSON.stringify(url)})`,
   );
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  filterGlobalStyle(doc);
-  // now [global] styles are moved to the outer document, there is no [global] styles in doc
 
+  // Parse HTML into a Document object for DOM manipulation
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  // Step 1: Extract [global] styles and move them to the main document's <head>
+  // After this call, doc only contains component-scoped styles
+  filterGlobalStyle(doc);
+
+  // Step 2: Rewrite all relative URLs in scripts and stylesheets to absolute URLs
+  // This ensures resources load correctly regardless of where the component is used
   rewriteStyleAndScript(doc, url);
 
-  // remove all styles to be adoptedStyleSheets
-  // which is necessary to avoid FOUC
+  // Step 3: Convert all styles to CSSStyleSheet objects for adoptedStyleSheets
+  // This prevents Flash of Unstyled Content (FOUC) by applying styles synchronously
+  // when the shadow root is created, rather than waiting for <style> tags to load
   const adoptedStyleSheets = await collectAdoptedStyleSheets(doc);
 
-  // note that we do NOT rewrite dynamic style import in <style>@import url(...)</style> at this moment
+  // Note: @import rules inside <style> tags are NOT supported because:
+  // 1. CSSStyleSheet.replaceSync() does not support @import
+  // 2. We don't rewrite relative URLs inside CSS @import declarations
 
+  // Step 4: Evaluate all ES module scripts and collect their exports
+  // The default export should be the component class (extends HTMLElement)
   const result = await evaluateModules(doc, url);
-  // now all script[type="module"] are removed from doc
+  // After this call, all <script type="module"> elements are removed from doc
 
-  // move all script to body instead of head, because we will only use doc.body.innerHTML later
+  // Step 5: Move remaining scripts (classic, non-module) from <head> to <body>
+  // We only use doc.body.innerHTML as the template, so scripts must be in <body>
   for (const el of doc.querySelectorAll("script")) {
     doc.body.prepend(el);
   }
-  // a normal script tag that is not a module will be injected into the shadow root and executed there
+  // Classic scripts will be re-executed when injected into the shadow root
+  // (they are cloned and replaced to trigger execution)
 
-  const component = result.default;
+  // Extract the default export from the evaluated modules
+  const component: any = result.default;
   const defaultExportIsComponent = component?.prototype instanceof HTMLElement;
 
-  // we will inject doc.body.innerHTML into the shadow root of the component
-  // if we use doc.documentElement.innerHTML, this will include extra <body> element, which make styling complicated
-  // and there is NO need to write a <body> tag in the component html file
+  // The template is doc.body.innerHTML (not doc.documentElement.innerHTML)
+  // This avoids including the <body> wrapper, making CSS selectors simpler
+  // Component authors don't need to write <body> tags in their HTML files
 
+  // Warn if default export exists but is not a valid web component class
   if (component && !defaultExportIsComponent) {
     warn(
       `The default export of component ${JSON.stringify(name)} loaded from ${url} is not a web component class`,
@@ -69,15 +136,22 @@ export async function loadComponent(
     );
   }
 
-  // this is a helper closure to reduce code duplication
+  /**
+   * Helper closure to create the extended component class and register it.
+   * This reduces code duplication between the HTMLElement and custom class cases.
+   */
   const define = (component: typeof HTMLElement) => {
+    // Create a subclass that automatically injects the shadow root with template and styles
     const cec = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
+    // Register with the browser's custom elements registry
     customElements.define(name, cec);
     emit("component-defined", { name, url });
+    // Cache for reuse and duplicate detection
     loadedComponentsRecord.set(name, { cec, url });
     return cec;
   };
 
+  // If no valid component class was exported, use plain HTMLElement as the base
   if (!component || !defaultExportIsComponent) {
     return define(HTMLElement);
   } else {
@@ -91,8 +165,8 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
   adoptedStyleSheets?: CSSStyleSheet[],
   afterConstructor?: VoidFunction,
 ): CustomElementConstructor {
-  // we doubt if this is a good way
-  // since the user provider a web component class,
+  // we doubt whether this is a good way
+  // since the user provides a web component class,
   // then we create a subclass for it that injects shadow root
 
   //@ts-ignore
@@ -101,7 +175,7 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
       //! we provide an extra argument to user's component constructor
       //@ts-ignore
       super(innerHTML, adoptedStyleSheets);
-      //! if the user constructor do not create shadow root, we will create one here
+      //! if the user's constructor does not create a shadow root, we will create one here
       if (!this.shadowRoot) {
         const shadowRoot = this.attachShadow({ mode: "open" });
         shadowRoot.innerHTML = innerHTML;
@@ -122,7 +196,7 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
  * - when used in normal document context, it just runs the function with document as root
  */
 export function defineComponent(fc: (root: Document | ShadowRoot) => void): any {
-  // note that files in src/* are always bundled, so we can use stack trace to detect who call the entry point
+  // note that files in src/* are always bundled, so we can use stack trace to detect who called the entry point
   const whoDefineMe = stackTraceParser.parse(new Error().stack!).at(-1)!.file!;
 
   if (blobMap.has(whoDefineMe)) {
@@ -169,11 +243,10 @@ async function collectAdoptedStyleSheets(doc: Document): Promise<CSSStyleSheet[]
   const adoptedStyleSheets = [];
 
   for (const link of doc.querySelectorAll(`link[rel="stylesheet"]`)) {
-    // this match <link rel="stylesheet" href="...">
     const styleText = await requestText((link as HTMLLinkElement).href, link.outerHTML).catch(
       (error) => {
         warn(`Failed to load ${link.outerHTML}`, error);
-        // just like the html, failed <link rel="stylesheet"> will not break the document
+        // just like the html, failed <link rel="stylesheet"> will not crash the document
         return "";
       },
     );
@@ -220,7 +293,7 @@ function rewriteStyleAndScript(doc: Document, url: string) {
 }
 
 async function evaluateModules(doc: Document, url: string) {
-  // the final exported module, composed to a single one
+  // the final exported module, composed into a single one
 
   const result: any = {};
   for (const script of doc.querySelectorAll('script[type="module"]')) {
