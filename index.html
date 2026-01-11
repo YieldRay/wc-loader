@@ -28,6 +28,21 @@
           display: none;
         }
       }
+
+      #output {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-height: 30vh;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.8);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 0.9rem;
+        padding: 0.5rem;
+        box-sizing: border-box;
+      }
     </style>
   </head>
   <body>
@@ -37,7 +52,21 @@
     <output id="output"></output>
 
     <script type="module">
-      import { loadComponent } from "./dist/index.bundled.js";
+      import { loadComponent, on } from "./dist/index.bundled.js";
+
+      const output = document.getElementById("output");
+      on("component-loading", (event) => {
+        const div = document.createElement("div");
+        div.textContent = `Loading component: ${event.detail.name}`;
+        output.appendChild(div);
+      });
+      on("component-defined", (event) => {
+        const div = document.createElement("div");
+        div.textContent = `Component loaded: ${event.detail.name}`;
+        output.appendChild(div);
+      });
+      // listeners should be registered before loading components
+
       loadComponent("my-layout", "./components/layout.html");
       loadComponent("demo-component", "./components/demo-component/");
     </script>

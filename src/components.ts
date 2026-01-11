@@ -70,8 +70,8 @@ export async function loadComponent(
   }
 
   // this is a helper closure to reduce code duplication
-  const define = (component: typeof HTMLElement, html: string) => {
-    const cec = extendsElement(component, html, adoptedStyleSheets, afterConstructor);
+  const define = (component: typeof HTMLElement) => {
+    const cec = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
     customElements.define(name, cec);
     emit("component-defined", { name, url });
     loadedComponentsRecord.set(name, { cec, url });
@@ -79,15 +79,15 @@ export async function loadComponent(
   };
 
   if (!component || !defaultExportIsComponent) {
-    return define(HTMLElement, doc.body.innerHTML);
+    return define(HTMLElement);
   } else {
-    return define(component, doc.body.innerHTML);
+    return define(component);
   }
 }
 
 function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElement>(
   BaseClass: BaseClass = HTMLElement as BaseClass,
-  innerHTML: string,
+  innerHTML: string, // we must use innerHTML instead of cloneNode(true)
   adoptedStyleSheets?: CSSStyleSheet[],
   afterConstructor?: VoidFunction,
 ): CustomElementConstructor {

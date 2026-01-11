@@ -3,4 +3,4 @@
 export { defineComponent, loadComponent } from "./components.ts";
 export { WCLoaderError } from "./error.ts";
 export { defineFetch } from "./network.ts";
-export { eventTarget } from "./events.ts";
+export { on } from "./events.ts";
