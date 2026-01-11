@@ -41,3 +41,4 @@ A helper function for dual-mode component definition:
 ## Next Steps
 
 - Implement component debugger
+- Implement component bundler in both runtime and server-side

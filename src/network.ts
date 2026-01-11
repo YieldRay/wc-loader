@@ -11,19 +11,18 @@ export async function requestText(url: string | URL, userFriendlySource: string)
 }
 
 export async function request(url: string | URL, userFriendlySource: string) {
+  let response: Response;
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new NativeSFCError(`Failed to fetch ${url} at ${userFriendlySource}`, {
-        cause: new Error(`HTTP status ${response.status}`),
-      });
-    }
-    return response;
+    response = await fetch(url);
   } catch (error) {
-    if (!(error instanceof NativeSFCError)) {
-      throw new NativeSFCError(`Failed to fetch ${url} at ${userFriendlySource}`, {
-        cause: error,
-      });
-    }
+    throw new NativeSFCError(`Failed to fetch ${url} at ${userFriendlySource}`, {
+      cause: error,
+    });
   }
+  if (!response.ok) {
+    throw new NativeSFCError(`Failed to fetch ${url} at ${userFriendlySource}`, {
+      cause: new Error(`HTTP status ${response.status}`),
+    });
+  }
+  return response;
 }

@@ -10,12 +10,12 @@ type NativeSFCEventsMap = {
 export const eventTarget = new EventTarget() as {
   addEventListener<K extends keyof NativeSFCEventsMap>(
     type: K,
-    listener: (this: HTMLDivElement, ev: NativeSFCEventsMap[K]) => any,
+    listener: (this: EventTarget, ev: NativeSFCEventsMap[K]) => any,
     options?: boolean | AddEventListenerOptions,
   ): void;
   removeEventListener<K extends keyof NativeSFCEventsMap>(
     type: K,
-    listener: (this: HTMLDivElement, ev: NativeSFCEventsMap[K]) => any,
+    listener: (this: EventTarget, ev: NativeSFCEventsMap[K]) => any,
     options?: boolean | EventListenerOptions,
   ): void;
   dispatchEvent(event: NativeSFCEventsMap[keyof NativeSFCEventsMap]): boolean;

@@ -88,11 +88,13 @@ function matchCSSAtImport(code: string) {
   let match: RegExpExecArray | null;
 
   while ((match = regex1.exec(code)) !== null) {
-    imports.push({ s: match.index + 8, e: match.index + 8 + match[1].length, url: match[1] });
+    const urlStart = match.index + match[0].indexOf(match[1]);
+    imports.push({ s: urlStart, e: urlStart + match[1].length, url: match[1] });
   }
 
   while ((match = regex2.exec(code)) !== null) {
-    imports.push({ s: match.index + 11, e: match.index + 11 + match[1].length, url: match[1] });
+    const urlStart = match.index + match[0].indexOf(match[1]);
+    imports.push({ s: urlStart, e: urlStart + match[1].length, url: match[1] });
   }
 
   return imports;
