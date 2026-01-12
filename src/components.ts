@@ -191,9 +191,52 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
 }
 
 /**
- * a dual component definition helper function
- * - when used inside loadComponent-imported module, it defines a web component class
- * - when used in normal document context, it just runs the function with document as root
+ * A dual-purpose component definition helper that adapts behavior based on execution context.
+ *
+ * This function provides a unified API for writing component logic that works in two scenarios:
+ * 1. **Inside a loadComponent-imported module**: Returns a web component class that will
+ *    invoke the provided function with the component's ShadowRoot when connected to the DOM.
+ * 2. **In normal document context**: Immediately executes the function with `document` as root,
+ *    enabling the same code to work as both a reusable component and a standalone script.
+ *
+ * The context detection works by analyzing the call stack to determine if the caller
+ * originated from a blob URL (created by loadComponent's ES module evaluation).
+ *
+ * **Important**: The `this` binding inside the function refers to:
+ * - The custom element instance (HTMLElement) when used as a web component
+ * - `undefined` when used in normal document context
+ *
+ * To access `this`, you **must use a regular function**, not an arrow function,
+ * since arrow functions lexically bind `this` and ignore `.call()` binding.
+ *
+ * @param fc - A function that receives the root element (Document or ShadowRoot) and
+ *             performs DOM manipulation, event binding, or other component initialization.
+ *             Must be a regular function (not arrow function) if you need to access `this`.
+ * @returns When used in component context: a CustomElementConstructor class.
+ *          When used in document context: the return value of `fc` (typically undefined).
+ *
+ * @example
+ * // In a component HTML file (loaded via loadComponent):
+ * // <script type="module">
+ * import { defineComponent } from 'native-sfc';
+ *
+ * // ✅ Use regular function to access `this` (the custom element instance)
+ * export default defineComponent(function(root) {
+ *   // 'root' is the ShadowRoot when used as component
+ *   // 'this' is the custom element instance
+ *   this.addEventListener('click', () => {
+ *     console.log('element clicked:', this.tagName);
+ *   });
+ *   root.querySelector('button')?.addEventListener('click', () => {
+ *     console.log('button clicked');
+ *   });
+ * });
+ *
+ * // ❌ Arrow function - `this` will NOT be the element instance
+ * export default defineComponent((root) => {
+ *   // `this` is lexically bound, not the element!
+ * });
+ * // </script>
  */
 export function defineComponent(fc: (root: Document | ShadowRoot) => void): any {
   // note that files in src/* are always bundled, so we can use stack trace to detect who called the entry point
@@ -207,7 +250,7 @@ export function defineComponent(fc: (root: Document | ShadowRoot) => void): any 
     };
   }
 
-  return fc.call(globalThis, document);
+  return fc.call(undefined, document);
 }
 
 function filterGlobalStyle(doc: Document) {
