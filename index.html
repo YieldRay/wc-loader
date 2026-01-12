@@ -2,70 +2,202 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NativeSFC</title>
+    <title>NativeSFC - Native Single File Components</title>
+    <link rel="stylesheet" href="https://unpkg.com/landsoul" />
     <style>
-      :root,
-      body,
-      my-layout {
-        margin: 0;
-        height: 100%;
+      * {
+        max-width: 100%;
       }
 
-      body:has(:not(:defined)) {
-        &::before {
-          content: "Loading...";
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          font-family: sans-serif;
-          font-size: 1.5rem;
-          color: #666;
-        }
-
-        :not(:defined) {
-          display: none;
-        }
+      header,
+      main,
+      footer {
+        max-width: 800px;
+        margin: 20px auto;
       }
 
-      #output {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        max-height: 30vh;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.8);
-        color: #0f0;
+      header {
+        margin-block: 10rem;
+      }
+
+      pre {
+        overflow-x: auto;
+      }
+
+      #demo-output {
+        padding: 1rem;
+        background: var(--landsoul-surface-low, #f5f5f5);
+        border-radius: 0.5rem;
         font-family: monospace;
         font-size: 0.9rem;
-        padding: 0.5rem;
-        box-sizing: border-box;
+        line-height: 1.8;
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 1rem;
+      }
+
+      #demo-output div {
+        opacity: 0;
+        animation: fadeIn 0.3s forwards;
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+      }
+
+      .feature-card {
+        padding: 1.5rem;
+        border: 1px solid var(--landsoul-border);
+        border-radius: 0.5rem;
+      }
+
+      .feature-card h3 {
+        margin-top: 0;
+      }
+
+      .step {
+        padding: 1rem;
+        margin: 1rem 0;
+        border-left: 3px solid var(--landsoul-primary);
+        background: var(--landsoul-surface-low);
+      }
+
+      .api-method {
+        padding: 1.5rem;
+        margin: 2rem 0;
+        border: 1px solid var(--landsoul-border);
+        border-radius: 0.5rem;
+      }
+
+      .api-method h3 {
+        font-family: monospace;
+        margin-top: 0;
+      }
+
+      .api-method code {
+        background: var(--landsoul-surface-low);
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
       }
     </style>
   </head>
+
   <body>
-    <my-layout>
-      <demo-component></demo-component>
-    </my-layout>
-    <output id="output"></output>
+    <header>
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h1>NativeSFC</h1>
+        <a href="https://github.com/YieldRay/native-sfc">GitHub</a>
+      </div>
+      <p>
+        <strong>Native Single File Components</strong> - Load single HTML files as Web Components.
+      </p>
+      <p>
+        Zero build step. Pure browser magic with automatic style scoping, ESM support, and URL
+        rewriting.
+      </p>
+
+      <h2>Quick Start</h2>
+      <pre><code>import { loadComponent } from 'native-sfc';
+
+// Load a component from an HTML file
+loadComponent('my-card', './components/card.html');
+
+// Use it anywhere in your HTML
+// &lt;my-card title="Hello"&gt;&lt;/my-card&gt;</code></pre>
+    </header>
+
+    <main role="main">
+      <section id="api">
+        <h2>API Reference</h2>
+
+        <div class="api-method">
+          <h3>loadComponent(name, url, afterConstructor?)</h3>
+          <p>Load a component from an HTML file and register it as a custom element.</p>
+          <dl>
+            <dt><code>name</code></dt>
+            <dd>The custom element name (e.g., "my-component"). Must contain a hyphen.</dd>
+
+            <dt><code>url</code></dt>
+            <dd>The URL to the component HTML file, relative to the importer.</dd>
+
+            <dt><code>afterConstructor</code></dt>
+            <dd>Optional callback executed after the component constructor runs.</dd>
+          </dl>
+        </div>
+
+        <div class="api-method">
+          <h3>defineComponent(fc)</h3>
+          <p>A helper function for dual-mode component definition.</p>
+          <dl>
+            <dt><code>fc</code></dt>
+            <dd>A function that receives the shadow root and returns component logic.</dd>
+          </dl>
+          <p>
+            <strong>Behavior:</strong> When inside loadComponent: defines a web component class. In
+            document context: runs with document as root.
+          </p>
+        </div>
+
+        <div class="api-method">
+          <h3>on(event, callback)</h3>
+          <p>Listen to component lifecycle events for debugging and monitoring.</p>
+          <dl>
+            <dt><code>component-loading</code></dt>
+            <dd>Fired when a component starts loading. Detail contains { name }.</dd>
+
+            <dt><code>component-defined</code></dt>
+            <dd>Fired when a component is fully defined. Detail contains { name }.</dd>
+          </dl>
+        </div>
+      </section>
+
+      <section id="demo">
+        <h2>Live Demo</h2>
+        <p>Watch NativeSFC load components in real-time:</p>
+
+        <div
+          style="
+            border: 1px solid var(--landsoul-border, #e0e0e0);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin: 1rem 0;
+          "
+        >
+          <my-layout>
+            <demo-component></demo-component>
+          </my-layout>
+          <div id="demo-output"></div>
+        </div>
+      </section>
+    </main>
 
     <script type="module">
       import { loadComponent, on } from "./dist/index.bundled.js";
 
-      const output = document.getElementById("output");
+      const output = document.getElementById("demo-output");
+
       on("component-loading", (event) => {
         const div = document.createElement("div");
-        div.textContent = `Loading component: ${event.detail.name}`;
+        div.textContent = `⏳ Loading: ${event.detail.name}`;
         output.appendChild(div);
       });
+
       on("component-defined", (event) => {
         const div = document.createElement("div");
-        div.textContent = `Component loaded: ${event.detail.name}`;
+        div.textContent = `✓ Defined: ${event.detail.name}`;
         output.appendChild(div);
       });
-      // listeners should be registered before loading components
 
       loadComponent("my-layout", "./components/layout.html");
       loadComponent("demo-component", "./components/demo-component/");

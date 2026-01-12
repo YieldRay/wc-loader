@@ -1,6 +1,3 @@
-<link rel="stylesheet" href="https://unpkg.com/landsoul" />
-<link rel="stylesheet" href="https://unpkg.com/landsoul/dist/extra.css" />
-
 <header>
   <slot name="header">
     <my-header></my-header>
@@ -23,7 +20,7 @@
       this.shadowRoot.querySelector("footer").textContent = navigator.userAgent;
       const main = this.shadowRoot.querySelector("main");
       main.addEventListener("click", (e) => {
-        if (e.target === main) confetti();
+        confetti();
       });
     }
   }
