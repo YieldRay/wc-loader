@@ -1,12 +1,13 @@
 import { parse } from "es-module-lexer/js";
 import * as stackTraceParser from "stacktrace-parser";
+import { config } from "./config.ts";
 
-function rewriteModule(code: string, sourceUrl: string): string {
+async function rewriteModule(code: string, sourceUrl: string): Promise<string> {
   const [imports] = parse(code);
 
   const rewritableImports = imports.filter((i) => {
     const specifier = code.slice(i.s, i.e);
-    return !isBrowserUrl(specifier) && !specifier.startsWith("data:");
+    return !isBrowserUrl(specifier); // absolute browser URLs are not rewritten, ./xxx or /xxx must be rewritten
   });
 
   for (const importEntry of rewritableImports.reverse()) {
@@ -17,6 +18,12 @@ function rewriteModule(code: string, sourceUrl: string): string {
 
     if (specifier.startsWith(".") || specifier.startsWith("/")) {
       rewritten = new URL(specifier, sourceUrl).href;
+    } else if (specifier.startsWith("node:")) {
+      // use @jspm/core for node built-in modules
+      const module = specifier.slice(5);
+      rewritten = `https://raw.esm.sh/@jspm/core/nodelibs/browser/${module}.js`;
+    } else if (specifier.startsWith("npm:")) {
+      rewritten = `https://esm.sh/${specifier.slice(4)}`;
     } else {
       // bare module specifier, since the module will NOT follow import maps,
       // we use esm.sh instead
@@ -24,17 +31,19 @@ function rewriteModule(code: string, sourceUrl: string): string {
     }
     code = code.slice(0, importEntry.s) + rewritten + code.slice(importEntry.e);
   }
-  // we also rewrite import.meta.url, which will then be used in `getImporterUrl` function
-  return `import.meta.url=${JSON.stringify(sourceUrl)};\n${code}`;
+
+  const { rewriteModule } = config;
+  // we also rewrite import.meta.url by default, which will then be used in `getImporterUrl` function
+  return await rewriteModule(code, sourceUrl);
 }
 
+// browser and blob URLs, but not data URLs
 function isBrowserUrl(url: string): boolean {
   return (
     url.startsWith("http://") ||
     url.startsWith("https://") ||
     url.startsWith("blob:http://") ||
-    url.startsWith("blob:https://") ||
-    url.startsWith("data:")
+    url.startsWith("blob:https://")
   );
 }
 
@@ -43,7 +52,7 @@ export const blobMap = new Map<string, string>();
 // track components loaded by loadComponent(), name -> {url, component}
 
 export async function esm(code: string, sourceUrl: string): Promise<any> {
-  code = rewriteModule(code, sourceUrl);
+  code = await rewriteModule(code, sourceUrl);
 
   const blob = new Blob([code], { type: "text/javascript" });
   const blobUrl = URL.createObjectURL(blob);

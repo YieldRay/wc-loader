@@ -22,6 +22,7 @@ import { blobMap, esm, getImporterUrl } from "./rewriter.ts";
 import { requestText, request } from "./network.ts";
 import { NativeSFCError, warn } from "./error.ts";
 import { emit } from "./events.ts";
+import { config } from "./config.ts";
 
 /**
  * Cache of loaded components to prevent duplicate definitions and enable reuse.
@@ -183,6 +184,7 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
           shadowRoot.adoptedStyleSheets = adoptedStyleSheets;
         }
       }
+
       if (afterConstructor) {
         afterConstructor.call(this);
       }

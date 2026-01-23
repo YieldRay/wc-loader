@@ -1,16 +1,12 @@
 import { NativeSFCError } from "./error.ts";
-
-let fetch = globalThis.fetch;
-
-export function defineFetch(customFetch: typeof fetch) {
-  fetch = customFetch;
-}
+import { config } from "./config.ts";
 
 export async function requestText(url: string | URL, userFriendlySource: string): Promise<string> {
   return request(url, userFriendlySource).then((res) => res.text());
 }
 
 export async function request(url: string | URL, userFriendlySource: string) {
+  const { fetch } = config;
   let response: Response;
   try {
     response = await fetch(url);

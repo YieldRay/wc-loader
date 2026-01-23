@@ -148,18 +148,6 @@ loadComponent('my-card', './components/card.html');
             document context: runs with document as root.
           </p>
         </div>
-
-        <div class="api-method">
-          <h3>on(event, callback)</h3>
-          <p>Listen to component lifecycle events for debugging and monitoring.</p>
-          <dl>
-            <dt><code>component-loading</code></dt>
-            <dd>Fired when a component starts loading. Detail contains { name }.</dd>
-
-            <dt><code>component-defined</code></dt>
-            <dd>Fired when a component is fully defined. Detail contains { name }.</dd>
-          </dl>
-        </div>
       </section>
 
       <section id="demo">
@@ -183,17 +171,17 @@ loadComponent('my-card', './components/card.html');
     </main>
 
     <script type="module">
-      import { loadComponent, on } from "./dist/index.bundled.js";
+      import { loadComponent, config } from "./dist/index.bundled.js";
 
       const output = document.getElementById("demo-output");
 
-      on("component-loading", (event) => {
+      config.on("component-loading", (event) => {
         const div = document.createElement("div");
         div.textContent = `⏳ Loading: ${event.detail.name}`;
         output.appendChild(div);
       });
 
-      on("component-defined", (event) => {
+      config.on("component-defined", (event) => {
         const div = document.createElement("div");
         div.textContent = `✓ Defined: ${event.detail.name}`;
         output.appendChild(div);

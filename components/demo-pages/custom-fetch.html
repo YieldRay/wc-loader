@@ -11,13 +11,13 @@
     </main>
 
     <script type="module">
-      import { loadComponent, defineFetch } from "../../dist/index.bundled.js";
-      defineFetch(async (input, init) => {
+      import { loadComponent, config } from "../../dist/index.bundled.js";
+      config.fetch = async (input, init) => {
         console.log("Custom fetch called for:", input);
         const url = new Request(input, init).url;
         const res = await fetch(`https://proxy.scalar.com/?scalar_url=${encodeURIComponent(url)}`);
         return res;
-      });
+      };
 
       const url = new URL(location.href).searchParams.get("url") || "https://sqlite.org/";
 
