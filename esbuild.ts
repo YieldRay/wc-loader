@@ -1,7 +1,7 @@
-import esbuild from "esbuild";
-import type { BuildOptions } from "esbuild";
 import process from "node:process";
 import fs from "node:fs";
+import esbuild from "esbuild";
+import type { BuildOptions } from "esbuild";
 
 if (process.argv.includes("--dev")) {
   await run();

@@ -176,15 +176,19 @@ loadComponent('my-card', './components/card.html');
       const output = document.getElementById("demo-output");
 
       config.on("component-loading", (event) => {
-        const div = document.createElement("div");
-        div.textContent = `⏳ Loading: ${event.detail.name}`;
-        output.appendChild(div);
+        output.appendChild(
+          Object.assign(document.createElement("div"), {
+            textContent: `⏳ Loading: ${event.detail.name}`,
+          }),
+        );
       });
 
       config.on("component-defined", (event) => {
-        const div = document.createElement("div");
-        div.textContent = `✓ Defined: ${event.detail.name}`;
-        output.appendChild(div);
+        output.appendChild(
+          Object.assign(document.createElement("div"), {
+            textContent: `✓ Defined: ${event.detail.name}`,
+          }),
+        );
       });
 
       loadComponent("my-layout", "./components/layout.html");
