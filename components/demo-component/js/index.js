@@ -1,5 +1,6 @@
 import { loadComponent, defineComponent } from "../../../dist/index.bundled.js";
 loadComponent("demo-counter", "../../demo-counter/");
+loadComponent("reactive-counter", "../../demo-counter/reactive.html");
 
 function getNow() {
   return new Date().toLocaleString();

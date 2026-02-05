@@ -40,7 +40,7 @@ function example() {
   });
   document.body.appendChild(div);
 
-  reactiveNodes(div.childNodes, () => {
+  const setup = () => {
     const [todos, setTodos] = signal([
       { text: "Learn reactive templates", completed: false },
       { text: "Build something cool", completed: false },
@@ -76,7 +76,9 @@ function example() {
       toggleTodo,
       removeTodo,
     };
-  });
+  };
+
+  reactiveNodes(div.childNodes, setup());
 }
 
 function toCamelCase(str: string): string {
@@ -119,11 +121,10 @@ function parseTextContent(text: string): TextPart[] {
   return parts;
 }
 
-function reactiveNodes(
+export function reactiveNodes(
   nodes: NodeListOf<ChildNode> | ChildNode[],
-  contextProvider: () => Record<string, any>,
+  context: Record<string, any>,
 ) {
-  const context = contextProvider();
   // To make expression reactive, this function should be called inside an effect
   const evalExpr = (expr: string, additionalContext?: Record<string, any>) => {
     const ctx = { ...context, ...additionalContext };
@@ -161,7 +162,7 @@ function reactiveNodes(
               // Render if not already rendered
               if (!renderedNode) {
                 const clone = template.cloneNode(true) as HTMLElement;
-                cleanup = reactiveNodes([clone], () => context);
+                cleanup = reactiveNodes([clone], context);
                 placeholder.parentNode?.insertBefore(clone, placeholder.nextSibling);
                 renderedNode = clone;
               }
@@ -211,7 +212,7 @@ function reactiveNodes(
             // Render each item
             contexts.forEach((itemContext) => {
               const clone = template.cloneNode(true) as HTMLElement;
-              const cleanup = reactiveNodes([clone], () => ({ ...context, ...itemContext }));
+              const cleanup = reactiveNodes([clone], { ...context, ...itemContext });
               placeholder.parentNode?.insertBefore(clone, placeholder.nextSibling);
               renderedItems.push({ node: clone, cleanup });
             });

@@ -22,7 +22,7 @@ import { blobMap, esm, getImporterUrl } from "./rewriter.ts";
 import { requestText, request } from "./network.ts";
 import { NativeSFCError, warn } from "./error.ts";
 import { emit } from "./events.ts";
-import { config } from "./config.ts";
+import { reactiveNodes } from "./template.ts";
 
 /**
  * Cache of loaded components to prevent duplicate definitions and enable reuse.
@@ -143,13 +143,13 @@ export async function loadComponent(
    */
   const define = (component: typeof HTMLElement) => {
     // Create a subclass that automatically injects the shadow root with template and styles
-    const cec = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
+    const CEC = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
     // Register with the browser's custom elements registry
-    customElements.define(name, cec);
+    customElements.define(name, CEC);
     emit("component-defined", { name, url });
     // Cache for reuse and duplicate detection
-    loadedComponentsRecord.set(name, { cec, url });
-    return cec;
+    loadedComponentsRecord.set(name, { cec: CEC, url });
+    return CEC;
   };
 
   // If no valid component class was exported, use plain HTMLElement as the base
@@ -183,6 +183,14 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
         if (adoptedStyleSheets && adoptedStyleSheets.length > 0) {
           shadowRoot.adoptedStyleSheets = adoptedStyleSheets;
         }
+      }
+
+      // Make the shadow root reactive if a setup() method is defined
+      if ("setup" in this && typeof this.setup === "function") {
+        const context = this.setup();
+        reactiveNodes(this.shadowRoot!.childNodes, context);
+      } else {
+        reactiveNodes(this.shadowRoot!.childNodes, {});
       }
 
       if (afterConstructor) {
@@ -240,12 +248,15 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
  * });
  * // </script>
  */
-export function defineComponent(fc: (root: Document | ShadowRoot) => void): any {
+export function defineComponent(fc: (root: Document | ShadowRoot) => any, setup?: () => any): any {
   // note that files in src/* are always bundled, so we can use stack trace to detect who called the entry point
   const whoDefineMe = stackTraceParser.parse(new Error().stack!).at(-1)!.file!;
 
   if (blobMap.has(whoDefineMe)) {
     return class extends HTMLElement {
+      setup() {
+        return setup?.();
+      }
       connectedCallback() {
         fc.call(this, this.shadowRoot || this.attachShadow({ mode: "open" }));
       }

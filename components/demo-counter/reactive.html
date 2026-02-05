@@ -1,0 +1,27 @@
+<button @click="setCount(count() - 1)">-</button>
+<span>{{ count() }}</span>
+<button @click="setCount(count() + 1)">+</button>
+
+<script type="module">
+  import { signal } from "../../dist/index.bundled.js";
+  export default class DemoCounter extends HTMLElement {
+    setup() {
+      const [count, setCount] = signal(0);
+      return {
+        count,
+        setCount,
+      };
+    }
+  }
+</script>
+
+<link id="stylesheet" rel="stylesheet" href="https://unpkg.com/landsoul" />
+
+<style>
+  :host {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: 1.5rem;
+  }
+</style>
