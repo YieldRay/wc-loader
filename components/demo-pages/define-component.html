@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ticker</title>
+  </head>
+  <body>
+    <h1>{{ document.title }}</h1>
+    <time>{{ t() }}</time>
+    <p>{{ width() }} x {{ height() }}</p>
+
+    <script type="module">
+      import { defineComponent, signal } from "../../dist/index.bundled.js";
+
+      const useScreenSize = () => {
+        const [width, setWidth] = signal(window.innerWidth);
+        const [height, setHeight] = signal(window.innerHeight);
+        const onResize = () => {
+          setWidth(window.innerWidth);
+          setHeight(window.innerHeight);
+        };
+        window.addEventListener("resize", onResize);
+        return { width, height };
+      };
+
+      export default defineComponent(({ onConnected, onDisconnected }) => {
+        const [t, setT] = signal(Date.now());
+        let id = undefined;
+
+        onConnected((root) => {
+          id = setInterval(() => {
+            setT(Date.now());
+          });
+        });
+
+        onDisconnected((root) => {
+          clearInterval(id);
+        });
+
+        return { t, ...useScreenSize() };
+      });
+    </script>
+  </body>
+</html>

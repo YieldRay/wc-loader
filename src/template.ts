@@ -126,8 +126,11 @@ export function reactiveNodes(
   context: Record<string, any>,
 ) {
   // To make expression reactive, this function should be called inside an effect
-  const evalExpr = (expr: string, additionalContext?: Record<string, any>) => {
-    const ctx = { ...context, ...additionalContext };
+  const evalExpr = (expr: string, additionalContext: Record<string, any> = {}) => {
+    const ctx =
+      typeof context === "object"
+        ? Object.assign({}, context, additionalContext)
+        : additionalContext;
     const keys = Object.keys(ctx);
     const values = Object.values(ctx);
     const func = new Function(...keys, `return ${expr.trimStart()}`);

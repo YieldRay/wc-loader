@@ -128,6 +128,9 @@ export function signal<T>(initialValue: T): readonly [Getter<T>, Setter<T>] {
     return value;
   };
 
+  read.toString = () =>
+    `signal<<${value}>>: This is a signal reader, you MUST call it to get the value.`;
+
   const write: Setter<T> = (newValue: T) => {
     if (value !== newValue) {
       value = newValue;
@@ -141,6 +144,9 @@ export function signal<T>(initialValue: T): readonly [Getter<T>, Setter<T>] {
       });
     }
   };
+
+  write.toString = () =>
+    `signal<<${value}>>: This is a signal writer, you MUST call it to set the value.`;
 
   return [read, write] as const;
 }
@@ -195,6 +201,9 @@ export function computed<T>(fn: () => T): Getter<T> {
     }
     return value;
   };
+
+  read.toString = () =>
+    `computed<<${value}>>: This is a computed reader, you MUST call it to get the value.`;
 
   return read;
 }

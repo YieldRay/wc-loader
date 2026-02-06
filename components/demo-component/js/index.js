@@ -21,10 +21,12 @@ function getNow() {
 //   }
 // }
 
-export default defineComponent((root) => {
-  const tick = () => {
-    root.getElementById("demo").textContent = getNow();
-  };
-  tick();
-  setInterval(tick, 1000);
+export default defineComponent(({ onConnected }) => {
+  onConnected((root) => {
+    const tick = () => {
+      root.getElementById("demo").textContent = getNow();
+    };
+    tick();
+    setInterval(tick, 1000);
+  });
 });

@@ -122,7 +122,7 @@ loadComponent('my-card', './components/card.html');
         <h2>API Reference</h2>
 
         <div class="api-method">
-          <h3>loadComponent(name, url, afterConstructor?)</h3>
+          <h3>loadComponent(name, url)</h3>
           <p>Load a component from an HTML file and register it as a custom element.</p>
           <dl>
             <dt><code>name</code></dt>
@@ -130,22 +130,22 @@ loadComponent('my-card', './components/card.html');
 
             <dt><code>url</code></dt>
             <dd>The URL to the component HTML file, relative to the importer.</dd>
-
-            <dt><code>afterConstructor</code></dt>
-            <dd>Optional callback executed after the component constructor runs.</dd>
           </dl>
         </div>
 
         <div class="api-method">
-          <h3>defineComponent(fc)</h3>
+          <h3>defineComponent(setup)</h3>
           <p>A helper function for dual-mode component definition.</p>
           <dl>
-            <dt><code>fc</code></dt>
-            <dd>A function that receives the shadow root and returns component logic.</dd>
+            <dt><code>setup</code></dt>
+            <dd>
+              A function that receives <code>{ onConnected, onDisconnected }</code> callbacks and
+              returns component state.
+            </dd>
           </dl>
           <p>
-            <strong>Behavior:</strong> When inside loadComponent: defines a web component class. In
-            document context: runs with document as root.
+            <strong>Behavior:</strong> When inside loadComponent: defines a web component class
+            with lifecycle callbacks. In document context: runs with document as root.
           </p>
         </div>
       </section>

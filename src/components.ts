@@ -44,7 +44,6 @@ const loadedComponentsRecord = new Map<string, { url: string; cec: CustomElement
  *
  * @param name - The custom element tag name (must contain a hyphen, e.g., "my-component")
  * @param url - URL to the component HTML file (relative to the importer or absolute)
- * @param afterConstructor - Optional callback invoked after component constructor completes
  * @returns The CustomElementConstructor for the registered component
  * @throws {NativeSFCError} If the component name is already registered by external code
  *
@@ -53,11 +52,7 @@ const loadedComponentsRecord = new Map<string, { url: string; cec: CustomElement
  * await loadComponent('my-button', './components/my-button.html');
  * document.body.innerHTML = '<my-button>Click me</my-button>';
  */
-export async function loadComponent(
-  name: string,
-  url: string,
-  afterConstructor?: VoidFunction,
-): Promise<CustomElementConstructor> {
+export async function loadComponent(name: string, url: string): Promise<CustomElementConstructor> {
   // Resolve relative URL against the importer's location (the file that called loadComponent)
   const importerUrl = getImporterUrl() || location.href;
   url = new URL(url, importerUrl).href;
@@ -143,7 +138,7 @@ export async function loadComponent(
    */
   const define = (component: typeof HTMLElement) => {
     // Create a subclass that automatically injects the shadow root with template and styles
-    const CEC = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets, afterConstructor);
+    const CEC = extendsElement(component, doc.body.innerHTML, adoptedStyleSheets);
     // Register with the browser's custom elements registry
     customElements.define(name, CEC);
     emit("component-defined", { name, url });
@@ -164,7 +159,6 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
   BaseClass: BaseClass = HTMLElement as BaseClass,
   innerHTML: string, // we must use innerHTML instead of cloneNode(true)
   adoptedStyleSheets?: CSSStyleSheet[],
-  afterConstructor?: VoidFunction,
 ): CustomElementConstructor {
   // we doubt whether this is a good way
   // since the user provides a web component class,
@@ -192,10 +186,6 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
       } else {
         reactiveNodes(this.shadowRoot!.childNodes, {});
       }
-
-      if (afterConstructor) {
-        afterConstructor.call(this);
-      }
     }
   } as BaseClass;
 }
@@ -203,67 +193,80 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
 /**
  * A dual-purpose component definition helper that adapts behavior based on execution context.
  *
- * This function provides a unified API for writing component logic that works in two scenarios:
- * 1. **Inside a loadComponent-imported module**: Returns a web component class that will
- *    invoke the provided function with the component's ShadowRoot when connected to the DOM.
- * 2. **In normal document context**: Immediately executes the function with `document` as root,
- *    enabling the same code to work as both a reusable component and a standalone script.
+ * When used inside a loadComponent-imported module, returns a web component class that
+ * manages lifecycle callbacks (onConnected, onDisconnected) and invokes them with the
+ * component's ShadowRoot. In normal document context, immediately executes the function
+ * with `document` as root.
  *
- * The context detection works by analyzing the call stack to determine if the caller
- * originated from a blob URL (created by loadComponent's ES module evaluation).
- *
- * **Important**: The `this` binding inside the function refers to:
- * - The custom element instance (HTMLElement) when used as a web component
- * - `undefined` when used in normal document context
- *
- * To access `this`, you **must use a regular function**, not an arrow function,
- * since arrow functions lexically bind `this` and ignore `.call()` binding.
- *
- * @param fc - A function that receives the root element (Document or ShadowRoot) and
- *             performs DOM manipulation, event binding, or other component initialization.
- *             Must be a regular function (not arrow function) if you need to access `this`.
+ * @param setup - A function that receives lifecycle callback registration methods
+ *                and returns component state/context.
  * @returns When used in component context: a CustomElementConstructor class.
- *          When used in document context: the return value of `fc` (typically undefined).
+ *          When used in document context: the return value of `setup`.
  *
  * @example
  * // In a component HTML file (loaded via loadComponent):
  * // <script type="module">
- * import { defineComponent } from 'native-sfc';
+ * import { defineComponent, signal } from 'native-sfc';
  *
- * // ✅ Use regular function to access `this` (the custom element instance)
- * export default defineComponent(function(root) {
- *   // 'root' is the ShadowRoot when used as component
- *   // 'this' is the custom element instance
- *   this.addEventListener('click', () => {
- *     console.log('element clicked:', this.tagName);
- *   });
- *   root.querySelector('button')?.addEventListener('click', () => {
- *     console.log('button clicked');
- *   });
- * });
+ * export default defineComponent(({ onConnected, onDisconnected }) => {
+ *   const nonReactiveState = { count: 0 };
  *
- * // ❌ Arrow function - `this` will NOT be the element instance
- * export default defineComponent((root) => {
- *   // `this` is lexically bound, not the element!
+ *   onConnected((root) => {
+ *     const button = root.querySelector('button');
+ *     button?.addEventListener('click', () => {
+ *       nonReactiveState.count++;
+ *       console.log('count:', nonReactiveState.count);
+ *     });
+ *   });
+ *
+ *   onDisconnected((root) => {
+ *     console.log('component removed');
+ *   });
+ *
+ *   const [increment, setIncrement] = signal(0);
+ *
+ *   return { increment, setIncrement }; // reactive state can be used in template
  * });
  * // </script>
  */
-export function defineComponent(fc: (root: Document | ShadowRoot) => any, setup?: () => any): any {
+export function defineComponent(
+  setup: ({
+    onConnected,
+    onDisconnected,
+  }: {
+    onConnected: (cb: (root: ShadowRoot | Document) => void) => void;
+    onDisconnected: (cb: (root: ShadowRoot) => void) => void;
+  }) => any,
+): any {
   // note that files in src/* are always bundled, so we can use stack trace to detect who called the entry point
   const whoDefineMe = stackTraceParser.parse(new Error().stack!).at(-1)!.file!;
 
   if (blobMap.has(whoDefineMe)) {
     return class extends HTMLElement {
+      _onConnectedEvents: Array<(root: ShadowRoot) => void> = [];
+      _onDisconnectedEvents: Array<(root: ShadowRoot) => void> = [];
       setup() {
-        return setup?.();
+        return setup({
+          onConnected: (event) => this._onConnectedEvents.push(event),
+          onDisconnected: (event) => this._onDisconnectedEvents.push(event),
+        });
       }
       connectedCallback() {
-        fc.call(this, this.shadowRoot || this.attachShadow({ mode: "open" }));
+        const root = this.shadowRoot || this.attachShadow({ mode: "open" });
+        this._onConnectedEvents.forEach((cb) => cb.call(undefined, root));
+      }
+      disconnectedCallback() {
+        const root = this.shadowRoot!;
+        this._onDisconnectedEvents.forEach((cb) => cb.call(undefined, root));
       }
     };
   }
 
-  return fc.call(undefined, document);
+  // normal document context
+  return setup({
+    onConnected: (cb) => cb(document),
+    onDisconnected: () => {},
+  });
 }
 
 function filterGlobalStyle(doc: Document) {

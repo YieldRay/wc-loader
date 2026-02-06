@@ -15,20 +15,21 @@ then processes them to create a Web Component.
 
 ## API
 
-### `loadComponent(name, url, afterConstructor?)`
+### `loadComponent(name, url)`
 
 Load a component from a HTML file and register it as a custom element.
 
 - `name`: The custom element name (e.g., `"my-component"`)
 - `url`: The URL to the component HTML file (relative to the importer)
-- `afterConstructor`: Optional callback executed after the component constructor
 
-### `defineComponent(fc)`
+### `defineComponent(setup)`
 
 A helper function for dual-mode component definition:
 
-- When used inside a `loadComponent`-imported module, it defines a web component class
-- When used in normal document context, it runs the function with `document` as root
+- When used inside a `loadComponent`-imported module, it defines a web component class with lifecycle callbacks
+- When used in normal document context, it runs the setup function with `document` as root
+- The setup function receives `{ onConnected, onDisconnected }` callbacks
+- Return an object from setup to expose reactive state to the template
 
 ## Limitations
 
