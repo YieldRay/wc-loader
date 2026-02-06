@@ -181,7 +181,7 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
 
       // Make the shadow root reactive if a setup() method is defined
       if ("setup" in this && typeof this.setup === "function") {
-        const context = this.setup();
+        const context = this.setup(); // <- `this` is the component instance
         reactiveNodes(this.shadowRoot!.childNodes, context);
       } else {
         reactiveNodes(this.shadowRoot!.childNodes, {});
@@ -230,6 +230,7 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
  * // </script>
  */
 export function defineComponent(
+  // this setup function cannot access `this`
   setup: ({
     onConnected,
     onDisconnected,
