@@ -23,7 +23,7 @@ import { requestText, request } from "./network.ts";
 import { NativeSFCError, warn } from "./error.ts";
 import { emit } from "./events.ts";
 import { reactiveNodes } from "./template.ts";
-import type { ModuleObject } from "./config.ts";
+import { type ModuleObject, bind } from "./config.ts";
 
 /**
  * Cache of loaded components to prevent duplicate definitions and enable reuse.
@@ -248,27 +248,36 @@ export function defineComponent(
       _onConnectedEvents: Array<(root: ShadowRoot) => void> = [];
       _onDisconnectedEvents: Array<(root: ShadowRoot) => void> = [];
       setup() {
-        return setup({
-          onConnected: (event) => this._onConnectedEvents.push(event),
-          onDisconnected: (event) => this._onDisconnectedEvents.push(event),
+        //! we bind `this` to the setup function, so that users can access `this` in setup, and `this` is the component instance
+        const setup2 = bind(setup, this);
+        return setup2({
+          onConnected: (event) => this._onConnectedEvents.push(bind(event, this)),
+          onDisconnected: (event) => this._onDisconnectedEvents.push(bind(event, this)),
         });
       }
       connectedCallback() {
         const root = this.shadowRoot || this.attachShadow({ mode: "open" });
-        this._onConnectedEvents.forEach((cb) => cb.call(undefined, root));
+        this._onConnectedEvents.forEach((cb) => cb(root));
       }
       disconnectedCallback() {
         const root = this.shadowRoot!;
-        this._onDisconnectedEvents.forEach((cb) => cb.call(undefined, root));
+        this._onDisconnectedEvents.forEach((cb) => cb(root));
       }
     };
   }
 
   // normal document context
-  return setup({
-    onConnected: (cb) => cb(document),
-    onDisconnected: () => {},
+  //! `this` is undefined in normal document context's setup function
+  const setup2 = bind(setup, undefined);
+  const context = setup2({
+    onConnected: (cb) => queueMicrotask(() => cb(document)),
+    onDisconnected: () => {
+      // never execute onDisconnected in document context, since the document is never removed
+    },
   });
+  //! make the whole document reactive, just like the web component (defined at `extendsElement`)
+  reactiveNodes(document.childNodes, context);
+  return; // return nothing
 }
 
 function filterGlobalStyle(doc: Document): void {

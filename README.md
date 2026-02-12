@@ -11,6 +11,8 @@ Load a single HTML file as a Web Component.
 </script>
 ```
 
+Use `export default` to declare the component class.
+
 ```html
 <!-- my-counter.html -->
 <button @click="setCount(count() + 1)">Count is: {{ count() }}</button>
@@ -21,8 +23,15 @@ Load a single HTML file as a Web Component.
       const [count, setCount] = signal(0);
       return { count, setCount };
     }
-    connectedCallback() {}
+    connectedCallback() {/* TODO */}
   }
+  // OR
+  import { defineComponent } from "https://esm.sh/native-sfc";
+  export default defineComponent(({ onConnected }) => {
+    const [count, setCount] = signal(0);
+    onConnected(() => {/* TODO */});
+    return { count, setCount };
+   });
 </script>
 ```
 
