@@ -75,7 +75,7 @@ export function reactiveNodes(
         const ifAttr = element.getAttribute("#if");
         if (ifAttr) {
           if (element.hasAttribute("#for")) {
-            console.warn("Cannot use #if and #for on the same element");
+            warn("Cannot use #if and #for on the same element");
           }
           const template = element.cloneNode(true) as HTMLElement;
           const parent = element.parentNode;
@@ -130,7 +130,7 @@ export function reactiveNodes(
             const contexts = evalExpr(forAttr);
 
             if (!Array.isArray(contexts)) {
-              console.warn("#for expression must return an array");
+              warn("#for expression must return an array");
               return;
             }
 
@@ -169,7 +169,13 @@ export function reactiveNodes(
             const expr = attr.value;
             effect(() => {
               const value = evalExpr(expr);
-              untrack(() => element.setAttribute(attrName, value));
+              untrack(() => {
+                if (typeof value === "boolean") {
+                  value ? element.setAttribute(attrName, "") : element.removeAttribute(attrName);
+                } else {
+                  element.setAttribute(attrName, value);
+                }
+              });
             });
             element.removeAttribute(attr.name);
           } else if (attr.name.startsWith("@")) {
@@ -206,7 +212,12 @@ export function reactiveNodes(
               if (part.type === "dynamic") {
                 effect(() => {
                   const value = evalExpr(part.content);
-                  untrack(() => (newTextNode.textContent = String(value)));
+                  untrack(
+                    () =>
+                      // Convert value to string
+                      // Note that we DO NOT use JSON.stringify here like some other frameworks
+                      (newTextNode.textContent = String(value)),
+                  );
                 });
               }
             }
