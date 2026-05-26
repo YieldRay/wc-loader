@@ -49,7 +49,10 @@ export function reactiveNodes(
   nodes: NodeListOf<Node> | Node[],
   context: Record<string, any>,
 ): VoidFunction {
-  // To make expression reactive, this function should be called inside an effect
+  // Cache compiled expression functions to avoid repeated `new Function` calls.
+  // Key format: `${expr}\0${keys.join(",")}` — same expression with same parameter names reuses the compiled function.
+  const exprCache = new Map<string, Function>();
+
   const evalExpr = (expr: string, additionalContext: Record<string, any> = {}) => {
     const ctx =
       typeof context === "object"
@@ -58,8 +61,19 @@ export function reactiveNodes(
     const keys = Object.keys(ctx);
     const values = Object.values(ctx);
 
+    const cacheKey = `${expr}\0${keys.join(",")}`;
+    let func = exprCache.get(cacheKey);
+    if (!func) {
+      try {
+        func = new Function(...keys, `return ${expr.trimStart()}`);
+        exprCache.set(cacheKey, func);
+      } catch (error) {
+        warn(`Failed to compile expression: "${expr}"`, error);
+        return;
+      }
+    }
+
     try {
-      const func = new Function(...keys, `return ${expr.trimStart()}`);
       return func(...values);
     } catch (error) {
       warn(`Failed to evaluate expression: "${expr}"`, error);

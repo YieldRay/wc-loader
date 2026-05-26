@@ -16,9 +16,11 @@
     "stacktrace-parser": "^0.1.11"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^25.2.3",
     "dts-bundle-generator": "^9.5.1",
-    "esbuild": "^0.27.3"
+    "esbuild": "^0.27.3",
+    "jsdom": "^29.1.1"
   },
   "author": "YieldRay",
   "license": "MIT",
