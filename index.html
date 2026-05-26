@@ -63,6 +63,24 @@
         line-height: 1.7;
       }
 
+      pre > code {
+        background: none;
+        padding: 0;
+      }
+
+      /* sugar-high syntax highlighting theme */
+      :root {
+        --sh-class: #2d5e9d;
+        --sh-identifier: #354150;
+        --sh-sign: #8996a3;
+        --sh-property: #0550ae;
+        --sh-entity: #249a97;
+        --sh-jsxliterals: #6266d1;
+        --sh-string: #00a99a;
+        --sh-keyword: #f47067;
+        --sh-comment: #a19595;
+      }
+
       #demo-output {
         padding: 1rem 1.25rem;
         background: var(--landsoul-surface-low, #f5f5f5);
@@ -302,7 +320,13 @@ loadComponent('my-card', './components/card.html');
     </footer>
 
     <script type="module">
+      import { highlight } from "https://esm.sh/sugar-high";
       import { loadComponent, config } from "./dist/index.bundled.js";
+
+      // Highlight code blocks with sugar-high
+      document.querySelectorAll("pre > code").forEach((block) => {
+        block.innerHTML = highlight(block.textContent);
+      });
 
       const output = document.getElementById("demo-output");
       let delay = 0;
