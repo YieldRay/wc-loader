@@ -21,12 +21,18 @@ function getNow() {
 //   }
 // }
 
-export default defineComponent(({ onConnected }) => {
+export default defineComponent(({ onConnected, onDisconnected }) => {
+  let intervalId;
+
   onConnected((root) => {
     const tick = () => {
       root.getElementById("demo").textContent = getNow();
     };
     tick();
-    setInterval(tick, 1000);
+    intervalId = setInterval(tick, 1000);
+  });
+
+  onDisconnected(() => {
+    clearInterval(intervalId);
   });
 });

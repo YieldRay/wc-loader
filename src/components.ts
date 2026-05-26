@@ -162,38 +162,72 @@ function extendsElement<BaseClass extends typeof HTMLElement = typeof HTMLElemen
   innerHTML: string, // we must use innerHTML instead of cloneNode(true)
   adoptedStyleSheets?: CSSStyleSheet[],
 ): CustomElementConstructor {
-  // we doubt whether this is a good way
-  // since the user provides a web component class,
-  // then we create a subclass for it that injects shadow root
-
   //@ts-ignore
   return class extends BaseClass {
+    /** Stop function for the reactive effect scope. Null when disconnected. */
+    _stopEffects: VoidFunction | null = null;
+    /** Context object returned by setup(). Stored for re-binding on reconnect. */
+    _reactiveContext: Record<string, any> | null = null;
+
     constructor(...args: any[]) {
       //! we provide an extra argument to user's component constructor
       //@ts-ignore
       super(innerHTML, adoptedStyleSheets);
       //! if the user's constructor does not create a shadow root, we will create one here
       if (!this.shadowRoot) {
-        const shadowRoot = this.attachShadow({ mode: "open" });
-        shadowRoot.innerHTML = innerHTML;
-        if (adoptedStyleSheets && adoptedStyleSheets.length > 0) {
-          shadowRoot.adoptedStyleSheets = adoptedStyleSheets;
-        }
+        this.attachShadow({ mode: "open" });
       }
 
-      // Make the shadow root reactive if a setup() method is defined
+      // Compute context from setup() if available
       if ("setup" in this && typeof this.setup === "function") {
-        const context = this.setup(); // <- `this` is the component instance
-        // TODO: There is a potential memory leak because reactiveNodes creates effects that are never stopped (disposed).
-        // However, fixing this by disposing effects in disconnectedCallback would break the ability to move components in the DOM
-        // (disconnecting and reconnecting would leave the component inert because the template bindings are destroyed and cannot be easily recreated).
-        // Given this trade-off, we decided to preserve the current behavior to support component relocation.
-        reactiveNodes(this.shadowRoot!.childNodes, context);
+        this._reactiveContext = this.setup(); // <- `this` is the component instance
       } else {
-        reactiveNodes(this.shadowRoot!.childNodes, {});
+        this._reactiveContext = {};
+      }
+
+      // Render template and bind reactive effects
+      this._bindReactiveNodes();
+    }
+
+    /**
+     * (Re-)render the template and bind reactive effects to the shadow DOM.
+     *
+     * Note: This re-sets innerHTML on every call, which means imperative DOM changes
+     * (e.g., event listeners added in onConnected, focus state, animations) are lost
+     * when a component is relocated in the DOM. This is an intentional trade-off —
+     * template directives (#if, #for) replace elements with comment placeholders,
+     * so re-binding to existing DOM after effects are stopped would not work correctly.
+     * Reactive state (signals) is preserved across disconnect/reconnect.
+     */
+    _bindReactiveNodes() {
+      if (this.shadowRoot && this._reactiveContext !== null) {
+        this.shadowRoot.innerHTML = innerHTML;
+        if (adoptedStyleSheets && adoptedStyleSheets.length > 0) {
+          this.shadowRoot.adoptedStyleSheets = adoptedStyleSheets;
+        }
+        this._stopEffects = reactiveNodes(this.shadowRoot.childNodes, this._reactiveContext);
       }
     }
-  } as BaseClass;
+
+    connectedCallback() {
+      //@ts-ignore
+      if (super.connectedCallback) super.connectedCallback();
+      // Re-bind if we were previously disconnected (supports component relocation in the DOM)
+      if (!this._stopEffects && this._reactiveContext !== null) {
+        this._bindReactiveNodes();
+      }
+    }
+
+    disconnectedCallback() {
+      //@ts-ignore
+      if (super.disconnectedCallback) super.disconnectedCallback();
+      // Stop all reactive effects to prevent memory leaks
+      if (this._stopEffects) {
+        this._stopEffects();
+        this._stopEffects = null;
+      }
+    }
+  } as unknown as CustomElementConstructor;
 }
 
 /**

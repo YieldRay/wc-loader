@@ -13,32 +13,28 @@
     <script type="module">
       import { defineComponent, signal } from "../../dist/index.bundled.js";
 
-      const useScreenSize = () => {
+      export default defineComponent(({ onConnected, onDisconnected }) => {
+        const [t, setT] = signal(Date.now());
         const [width, setWidth] = signal(window.innerWidth);
         const [height, setHeight] = signal(window.innerHeight);
+        let intervalId;
+
         const onResize = () => {
           setWidth(window.innerWidth);
           setHeight(window.innerHeight);
         };
-        window.addEventListener("resize", onResize);
-        return { width, height };
-      };
 
-      export default defineComponent(({ onConnected, onDisconnected }) => {
-        const [t, setT] = signal(Date.now());
-        let id = undefined;
-
-        onConnected((root) => {
-          id = setInterval(() => {
-            setT(Date.now());
-          });
+        onConnected(() => {
+          intervalId = setInterval(() => setT(Date.now()));
+          window.addEventListener("resize", onResize);
         });
 
-        onDisconnected((root) => {
-          clearInterval(id);
+        onDisconnected(() => {
+          clearInterval(intervalId);
+          window.removeEventListener("resize", onResize);
         });
 
-        return { t, ...useScreenSize() };
+        return { t, width, height };
       });
     </script>
   </body>

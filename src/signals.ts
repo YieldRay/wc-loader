@@ -3,6 +3,8 @@ import { NativeSFCError } from "./error.ts";
 type Getter<T> = () => T;
 type Setter<T> = (newValue: T) => void;
 
+const SUBS = Symbol("subscribers");
+
 interface ReactiveEffect {
   (): void;
   deps: Set<Set<ReactiveEffect>>;
@@ -100,14 +102,20 @@ export function effectScope(fn?: VoidFunction): VoidFunction {
   return () => scope.stop();
 }
 
-export function effect(fn: VoidFunction): VoidFunction {
+export function effect(fn: () => void | (() => void)): VoidFunction {
+  let effectCleanup: VoidFunction | void;
+
   const effect = createReactiveEffect(
     () => {
       cleanup(effect);
+      if (effectCleanup) {
+        effectCleanup();
+        effectCleanup = undefined;
+      }
       const prevEffect = activeEffect;
       activeEffect = effect;
       try {
-        fn();
+        effectCleanup = fn();
       } finally {
         activeEffect = prevEffect;
       }
@@ -120,6 +128,10 @@ export function effect(fn: VoidFunction): VoidFunction {
 
   const stop = () => {
     cleanup(effect);
+    if (effectCleanup) {
+      effectCleanup();
+      effectCleanup = undefined;
+    }
   };
 
   if (activeScope) {
@@ -140,6 +152,8 @@ export function signal<T>(initialValue: T): readonly [Getter<T>, Setter<T>] {
     }
     return value;
   };
+
+  Reflect.set(read, SUBS, subscribers);
 
   read.toString = () => {
     throw new NativeSFCError(
@@ -170,7 +184,7 @@ export function signal<T>(initialValue: T): readonly [Getter<T>, Setter<T>] {
   return [read, write] as const;
 }
 
-export function computed<T>(fn: () => T): Getter<T> {
+export function computed<T>(fn: (prev?: T) => T): Getter<T> {
   let value: T;
   let dirty = true;
   let isComputing = false;
@@ -178,14 +192,14 @@ export function computed<T>(fn: () => T): Getter<T> {
   const runner: VoidFunction = () => {
     if (!dirty) {
       dirty = true;
-      trigger(subscribers);
+      notify(subscribers);
     }
   };
 
   const internalEffect = createReactiveEffect(runner);
   const subscribers = new Set<ReactiveEffect>();
 
-  const trigger: Setter<Set<ReactiveEffect>> = (subs: Set<ReactiveEffect>) => {
+  const notify = (subs: Set<ReactiveEffect>) => {
     const effectsToRun = new Set(subs);
     effectsToRun.forEach((effect) => {
       if (effect.options?.scheduler) {
@@ -211,7 +225,7 @@ export function computed<T>(fn: () => T): Getter<T> {
       activeEffect = internalEffect;
       cleanup(internalEffect);
       try {
-        value = fn();
+        value = fn(value);
         dirty = false;
       } finally {
         activeEffect = prevEffect;
@@ -228,4 +242,21 @@ export function computed<T>(fn: () => T): Getter<T> {
   };
 
   return read;
+}
+
+export function trigger<T>(getter: Getter<T>): void {
+  const subscribers: Set<ReactiveEffect> | undefined = Reflect.get(getter, SUBS);
+  if (!subscribers) {
+    throw new NativeSFCError(
+      "trigger() requires a signal getter. Computed values cannot be triggered.",
+    );
+  }
+  const effectsToRun = new Set(subscribers);
+  effectsToRun.forEach((effect) => {
+    if (effect.options?.scheduler) {
+      effect.options.scheduler(effect);
+    } else {
+      effect();
+    }
+  });
 }

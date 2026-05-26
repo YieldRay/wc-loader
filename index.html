@@ -2,7 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NativeSFC - Native Single File Components</title>
     <link rel="stylesheet" href="https://unpkg.com/landsoul" />
@@ -11,41 +10,100 @@
         max-width: 100%;
       }
 
+      html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        line-height: 1.6;
+      }
+
       header,
       main,
       footer {
         max-width: 800px;
         margin: 20px auto;
+        padding: 0 1.5rem;
       }
 
       header {
-        margin-block: 10rem;
+        margin-block: 6rem 4rem;
+      }
+
+      header h1 {
+        text-wrap: balance;
+        font-size: 2.5rem;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+
+      header p {
+        text-wrap: pretty;
+        color: var(--landsoul-text-muted, #666);
+      }
+
+      h2 {
+        text-wrap: balance;
+        margin-top: 3rem;
       }
 
       pre {
         overflow-x: auto;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        background: var(--landsoul-surface-low, #f5f5f5);
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.04),
+          0 2px 8px rgba(0, 0, 0, 0.03);
+      }
+
+      code {
+        font-size: 0.875rem;
+        line-height: 1.7;
+      }
+
+      pre > code {
+        background: none;
+        padding: 0;
+      }
+
+      /* sugar-high syntax highlighting theme */
+      :root {
+        --sh-class: #2d5e9d;
+        --sh-identifier: #354150;
+        --sh-sign: #8996a3;
+        --sh-property: #0550ae;
+        --sh-entity: #249a97;
+        --sh-jsxliterals: #6266d1;
+        --sh-string: #00a99a;
+        --sh-keyword: #f47067;
+        --sh-comment: #a19595;
       }
 
       #demo-output {
-        padding: 1rem;
+        padding: 1rem 1.25rem;
         background: var(--landsoul-surface-low, #f5f5f5);
         border-radius: 0.5rem;
         font-family: monospace;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
         line-height: 1.8;
-        max-height: 300px;
+        max-height: 240px;
         overflow-y: auto;
         margin-top: 1rem;
       }
 
       #demo-output div {
         opacity: 0;
-        animation: fadeIn 0.3s forwards;
+        transform: translateY(4px);
+        animation: fadeIn 0.25s cubic-bezier(0.2, 0, 0, 1) forwards;
       }
 
       @keyframes fadeIn {
         to {
           opacity: 1;
+          transform: translateY(0);
         }
       }
 
@@ -58,37 +116,107 @@
 
       .feature-card {
         padding: 1.5rem;
-        border: 1px solid var(--landsoul-border);
-        border-radius: 0.5rem;
+        border-radius: 0.75rem;
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.06),
+          0 1px 3px rgba(0, 0, 0, 0.04),
+          0 4px 12px rgba(0, 0, 0, 0.03);
       }
 
       .feature-card h3 {
         margin-top: 0;
+        margin-bottom: 0.5rem;
       }
 
-      .step {
-        padding: 1rem;
+      .feature-card p {
+        margin: 0;
+        color: var(--landsoul-text-muted, #666);
+        font-size: 0.9rem;
+      }
+
+      .demo-container {
+        border-radius: 0.75rem;
+        padding: 1.5rem;
         margin: 1rem 0;
-        border-left: 3px solid var(--landsoul-primary);
-        background: var(--landsoul-surface-low);
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.06),
+          0 2px 6px rgba(0, 0, 0, 0.04),
+          0 8px 24px rgba(0, 0, 0, 0.03);
       }
 
       .api-method {
         padding: 1.5rem;
-        margin: 2rem 0;
-        border: 1px solid var(--landsoul-border);
-        border-radius: 0.5rem;
+        margin: 1.5rem 0;
+        border-radius: 0.75rem;
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.06),
+          0 1px 3px rgba(0, 0, 0, 0.04);
       }
 
       .api-method h3 {
         font-family: monospace;
+        font-size: 1rem;
         margin-top: 0;
+        margin-bottom: 0.75rem;
+      }
+
+      .api-method p {
+        text-wrap: pretty;
       }
 
       .api-method code {
-        background: var(--landsoul-surface-low);
-        padding: 0.2rem 0.4rem;
+        background: var(--landsoul-surface-low, #f5f5f5);
+        padding: 0.15rem 0.4rem;
         border-radius: 0.25rem;
+        font-size: 0.85rem;
+      }
+
+      .api-method dl {
+        margin: 0.75rem 0;
+      }
+
+      .api-method dt {
+        margin-top: 0.5rem;
+      }
+
+      .api-method dd {
+        margin-left: 1rem;
+        color: var(--landsoul-text-muted, #666);
+      }
+
+      .github-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        text-decoration: none;
+        color: inherit;
+        font-size: 0.9rem;
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.1),
+          0 1px 2px rgba(0, 0, 0, 0.05);
+        transition-property: transform, box-shadow;
+        transition-duration: 0.15s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+      }
+
+      .github-link:hover {
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.12),
+          0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+
+      .github-link:active {
+        transform: scale(0.96);
+      }
+
+      footer {
+        margin-top: 4rem;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        color: var(--landsoul-text-muted, #666);
+        font-size: 0.85rem;
       }
     </style>
   </head>
@@ -97,17 +225,19 @@
     <header>
       <div style="display: flex; justify-content: space-between; align-items: center">
         <h1>NativeSFC</h1>
-        <a href="https://github.com/YieldRay/native-sfc">GitHub</a>
+        <a href="https://github.com/YieldRay/native-sfc" class="github-link">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          GitHub
+        </a>
       </div>
       <p>
-        <strong>Native Single File Components</strong> - Load single HTML files as Web Components.
-      </p>
-      <p>
-        Zero build step. Pure browser magic with automatic style scoping, ESM support, and URL
-        rewriting.
+        <strong>Native Single File Components</strong> &mdash; Load single HTML files as Web
+        Components. Zero build step. Automatic style scoping, ESM support, and URL rewriting.
       </p>
 
-      <h2>Quick Start</h2>
+      <h2 style="margin-top: 2rem">Quick Start</h2>
       <pre><code>import { loadComponent } from 'native-sfc';
 
 // Load a component from an HTML file
@@ -118,6 +248,28 @@ loadComponent('my-card', './components/card.html');
     </header>
 
     <main role="main">
+      <section>
+        <h2>Features</h2>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Zero Build Step</h3>
+            <p>Write HTML files, load them as components. No bundler, no compiler, no config.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Style Scoping</h3>
+            <p>Styles are scoped to shadow DOM via adoptedStyleSheets. No FOUC.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Reactive Templates</h3>
+            <p>Signals, computed values, and reactive bindings with {{ expressions }}.</p>
+          </div>
+          <div class="feature-card">
+            <h3>ESM Support</h3>
+            <p>Full ES module support with automatic import rewriting and bare specifiers.</p>
+          </div>
+        </div>
+      </section>
+
       <section id="api">
         <h2>API Reference</h2>
 
@@ -140,12 +292,12 @@ loadComponent('my-card', './components/card.html');
             <dt><code>setup</code></dt>
             <dd>
               A function that receives <code>{ onConnected, onDisconnected }</code> callbacks and
-              returns component state.
+              returns component state for template bindings.
             </dd>
           </dl>
           <p>
-            <strong>Behavior:</strong> When inside loadComponent: defines a web component class
-            with lifecycle callbacks. In document context: runs with document as root.
+            When inside a loaded component: defines a web component class with lifecycle callbacks.
+            In document context: runs immediately with document as root.
           </p>
         </div>
       </section>
@@ -154,14 +306,7 @@ loadComponent('my-card', './components/card.html');
         <h2>Live Demo</h2>
         <p>Watch NativeSFC load components in real-time:</p>
 
-        <div
-          style="
-            border: 1px solid var(--landsoul-border, #e0e0e0);
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin: 1rem 0;
-          "
-        >
+        <div class="demo-container">
           <my-layout>
             <demo-component></demo-component>
           </my-layout>
@@ -170,25 +315,36 @@ loadComponent('my-card', './components/card.html');
       </section>
     </main>
 
+    <footer>
+      <p>MIT License &middot; Created by <a href="https://github.com/YieldRay">YieldRay</a></p>
+    </footer>
+
     <script type="module">
+      import { highlight } from "https://esm.sh/sugar-high";
       import { loadComponent, config } from "./dist/index.bundled.js";
 
+      // Highlight code blocks with sugar-high
+      document.querySelectorAll("pre > code").forEach((block) => {
+        block.innerHTML = highlight(block.textContent);
+      });
+
       const output = document.getElementById("demo-output");
+      let delay = 0;
 
       config.on("component-loading", (event) => {
-        output.appendChild(
-          Object.assign(document.createElement("div"), {
-            textContent: `⏳ Loading: ${event.detail.name}`,
-          }),
-        );
+        const div = document.createElement("div");
+        div.textContent = `\u23f3 Loading: ${event.detail.name}`;
+        div.style.animationDelay = `${delay}ms`;
+        delay += 80;
+        output.appendChild(div);
       });
 
       config.on("component-defined", (event) => {
-        output.appendChild(
-          Object.assign(document.createElement("div"), {
-            textContent: `✓ Defined: ${event.detail.name}`,
-          }),
-        );
+        const div = document.createElement("div");
+        div.textContent = `\u2713 Defined: ${event.detail.name}`;
+        div.style.animationDelay = `${delay}ms`;
+        delay += 80;
+        output.appendChild(div);
       });
 
       loadComponent("my-layout", "./www/layout.html");
