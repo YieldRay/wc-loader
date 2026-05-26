@@ -12,14 +12,14 @@
     "dev": "node esbuild.ts --dev"
   },
   "dependencies": {
-    "es-module-lexer": "^2.0.0",
+    "es-module-lexer": "^2.1.0",
     "stacktrace-parser": "^0.1.11"
   },
   "devDependencies": {
     "@types/jsdom": "^28.0.3",
-    "@types/node": "^25.2.3",
+    "@types/node": "^25.9.1",
     "dts-bundle-generator": "^9.5.1",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.28.0",
     "jsdom": "^29.1.1"
   },
   "author": "YieldRay",
