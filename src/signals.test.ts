@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert";
-import { signal, computed, effect, effectScope, untrack } from "./signals.ts";
+import { signal, computed, effect, effectScope, untrack, trigger } from "./signals.ts";
 
 const nextTick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -655,6 +655,191 @@ describe("Signal System", () => {
       // Multiple flushes should be safe
       await nextTick();
       assert.strictEqual(effectRuns, 2);
+    });
+  });
+
+  describe("Effect cleanup return", () => {
+    test("cleanup function runs before re-execution", async () => {
+      const [count, setCount] = signal(0);
+      const cleanups: number[] = [];
+
+      effect(() => {
+        const val = count();
+        return () => {
+          cleanups.push(val);
+        };
+      });
+
+      setCount(1);
+      await nextTick();
+      assert.deepStrictEqual(cleanups, [0]);
+
+      setCount(2);
+      await nextTick();
+      assert.deepStrictEqual(cleanups, [0, 1]);
+    });
+
+    test("cleanup function runs on stop", async () => {
+      const [count] = signal(42);
+      let cleaned = false;
+
+      const stop = effect(() => {
+        count();
+        return () => {
+          cleaned = true;
+        };
+      });
+
+      assert.strictEqual(cleaned, false);
+      stop();
+      assert.strictEqual(cleaned, true);
+    });
+
+    test("no cleanup if effect returns void", async () => {
+      const [count, setCount] = signal(0);
+      let runs = 0;
+
+      const stop = effect(() => {
+        count();
+        runs++;
+        // returns undefined implicitly
+      });
+
+      setCount(1);
+      await nextTick();
+      assert.strictEqual(runs, 2);
+      stop(); // should not throw
+    });
+
+    test("cleanup runs inside effectScope.stop()", () => {
+      let cleaned = false;
+
+      const stop = effectScope(() => {
+        effect(() => {
+          return () => {
+            cleaned = true;
+          };
+        });
+      });
+
+      assert.strictEqual(cleaned, false);
+      stop();
+      assert.strictEqual(cleaned, true);
+    });
+  });
+
+  describe("Computed previous value", () => {
+    test("receives undefined on first computation", () => {
+      const c = computed((prev) => {
+        return prev;
+      });
+      assert.strictEqual(c(), undefined);
+    });
+
+    test("receives previous value on recomputation", async () => {
+      const [count, setCount] = signal(1);
+      const accumulated = computed((prev?: number) => {
+        return (prev ?? 0) + count();
+      });
+
+      assert.strictEqual(accumulated(), 1); // 0 + 1
+
+      setCount(5);
+      // computed is lazy - need to read it after deps change
+      // Force recomputation by reading after signal change
+      await nextTick();
+      assert.strictEqual(accumulated(), 6); // 1 + 5
+    });
+
+    test("previous value for delta computation", async () => {
+      const [value, setValue] = signal(10);
+      const history: number[] = [];
+
+      const current = computed((prev?: number) => {
+        const v = value();
+        if (prev !== undefined) history.push(prev);
+        return v;
+      });
+
+      assert.strictEqual(current(), 10);
+      setValue(20);
+      await nextTick();
+      assert.strictEqual(current(), 20);
+      assert.deepStrictEqual(history, [10]);
+
+      setValue(30);
+      await nextTick();
+      assert.strictEqual(current(), 30);
+      assert.deepStrictEqual(history, [10, 20]);
+    });
+  });
+
+  describe("trigger()", () => {
+    test("notifies subscribers without value change", async () => {
+      const [items] = signal<string[]>([]);
+      let runs = 0;
+
+      effect(() => {
+        items();
+        runs++;
+      });
+
+      assert.strictEqual(runs, 1);
+
+      trigger(items);
+      await nextTick();
+      assert.strictEqual(runs, 2);
+    });
+
+    test("works with multiple subscribers", async () => {
+      const [data] = signal({ x: 1 });
+      let runsA = 0;
+      let runsB = 0;
+
+      effect(() => {
+        data();
+        runsA++;
+      });
+
+      effect(() => {
+        data();
+        runsB++;
+      });
+
+      assert.strictEqual(runsA, 1);
+      assert.strictEqual(runsB, 1);
+
+      trigger(data);
+      await nextTick();
+      assert.strictEqual(runsA, 2);
+      assert.strictEqual(runsB, 2);
+    });
+
+    test("throws on non-signal getter", () => {
+      const c = computed(() => 42);
+      assert.throws(() => trigger(c), /signal getter/);
+    });
+
+    test("useful for mutable collections", async () => {
+      const [list] = signal<number[]>([]);
+      const values: number[][] = [];
+
+      effect(() => {
+        values.push([...list()]);
+      });
+
+      assert.deepStrictEqual(values, [[]]);
+
+      // Mutate in place without changing reference
+      list().push(1);
+      trigger(list);
+      await nextTick();
+      assert.deepStrictEqual(values, [[], [1]]);
+
+      list().push(2);
+      trigger(list);
+      await nextTick();
+      assert.deepStrictEqual(values, [[], [1], [1, 2]]);
     });
   });
 });

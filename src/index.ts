@@ -3,4 +3,4 @@
 export { defineComponent, loadComponent } from "./components.ts";
 export { config } from "./config.ts";
 export { NativeSFCError } from "./error.ts";
-export { signal, computed, effect, effectScope, untrack } from "./signals.ts";
+export { signal, computed, effect, effectScope, untrack, trigger } from "./signals.ts";
