@@ -170,19 +170,26 @@
     import { defineComponent } from "../../dist/index.bundled.js";
     // Close popover when switching to wide layout to prevent top-layer promotion
 
-    export default defineComponent(({ onConnected }) => {
-      onConnected((document) => {
+    export default defineComponent(({ onConnected, onDisconnected }) => {
+      let mql;
+
+      onConnected((root) => {
         console.log(
-          [...document.adoptedStyleSheets]
+          [...root.adoptedStyleSheets]
             .map((s) => [...s.cssRules].map((r) => r.cssText).join("\n"))
             .join("\n---\n"),
         );
 
-        matchMedia("(width >= 720px)").onchange = (e) => {
+        mql = matchMedia("(width >= 720px)");
+        mql.onchange = (e) => {
           if (e.matches) {
-            document.getElementById("menu").hidePopover();
+            root.getElementById("menu").hidePopover();
           }
         };
+      });
+
+      onDisconnected(() => {
+        if (mql) mql.onchange = null;
       });
     });
   </script>

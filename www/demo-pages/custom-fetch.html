@@ -22,22 +22,28 @@
       const url = new URL(location.href).searchParams.get("url") || "https://sqlite.org/";
 
       // you can see that this demo works just like micro frontend
-      loadComponent("embed-page", url, function () {
+      await loadComponent("embed-page", url);
+
+      // Rewrite relative URLs and fix styles after component is defined
+      customElements.whenDefined("embed-page").then(() => {
+        const el = document.querySelector("embed-page");
+        if (!el?.shadowRoot) return;
+
         // rewrite a[href] and img[src]
-        this.shadowRoot.querySelectorAll("a[href]").forEach((a) => {
+        el.shadowRoot.querySelectorAll("a[href]").forEach((a) => {
           const href = a.getAttribute("href");
           if (href && !href.startsWith("http")) {
             a.href = new URL(href, url).href;
           }
         });
-        this.shadowRoot.querySelectorAll("img[src]").forEach((img) => {
+        el.shadowRoot.querySelectorAll("img[src]").forEach((img) => {
           const src = img.getAttribute("src");
           if (src && !src.startsWith("http")) {
             img.src = new URL(src, url).href;
           }
         });
 
-        Array.from(this.shadowRoot.adoptedStyleSheets).forEach((sheet, index) => {
+        Array.from(el.shadowRoot.adoptedStyleSheets).forEach((sheet, index) => {
           Array.from(sheet.cssRules).forEach((rule) => {
             // if the selector includes body, replace to :host
             if (rule instanceof CSSStyleRule) {
