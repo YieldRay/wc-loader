@@ -158,6 +158,62 @@ describe("Template - Property Binding", () => {
     assert.strictEqual((container.querySelector("input") as any).value, "world");
     cleanup();
   });
+
+  test("converts kebab-case property to camelCase", () => {
+    const { container } = createDOM(`<div .data-value="val()"></div>`);
+    const [val] = signal("test");
+
+    const cleanup = reactiveNodes(container.childNodes, { val });
+    assert.strictEqual((container.querySelector("div") as any).dataValue, "test");
+    cleanup();
+  });
+});
+
+describe("Template - Edge Cases", () => {
+  test("runtime expression error is handled gracefully", () => {
+    // Expression that compiles fine but throws at runtime
+    const { container } = createDOM(`<p>{{ obj.missing.deep }}</p>`);
+    const obj = null;
+
+    // Should not throw — warns and renders "undefined"
+    const cleanup = reactiveNodes(container.childNodes, { obj });
+    assert.strictEqual(container.querySelector("p")!.textContent, "undefined");
+    cleanup();
+  });
+
+  test("#if and #for on same element warns", () => {
+    const { container } = createDOM(
+      `<div><p #if="show()" #for="items()">text</p></div>`,
+    );
+    const [show] = signal(true);
+    const [items] = signal([{ x: 1 }]);
+
+    // Should not crash — warns and processes #if (ignoring #for)
+    const cleanup = reactiveNodes(container.childNodes, { show, items });
+    cleanup();
+  });
+
+  test("#for with non-array expression warns and does not crash", () => {
+    const { container } = createDOM(
+      `<ul><li #for="items()">{{ text }}</li></ul>`,
+    );
+    const [items] = signal("not-an-array" as any);
+
+    // Should not throw — warns about non-array
+    const cleanup = reactiveNodes(container.childNodes, { items });
+    assert.strictEqual(container.querySelectorAll("li").length, 0);
+    cleanup();
+  });
+
+  test("compilation error in expression is handled gracefully", () => {
+    // Syntax error that fails at new Function() compilation time
+    const { container } = createDOM(`<p>{{ @@invalid syntax }}</p>`);
+
+    // Should not throw — warns and renders "undefined"
+    const cleanup = reactiveNodes(container.childNodes, {});
+    assert.strictEqual(container.querySelector("p")!.textContent, "undefined");
+    cleanup();
+  });
 });
 
 describe("Template - Event Binding", () => {

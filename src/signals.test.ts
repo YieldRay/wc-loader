@@ -541,6 +541,10 @@ describe("Signal System", () => {
       stop();
     });
 
+    // Note: EffectScope.add() inactive branch (lines 72-73) is defensive dead code.
+    // It cannot be reached through the public API because activeScope is only set
+    // inside scope.run(), which returns early when !active. The guard is kept for safety.
+
     test("stop when already inactive", async () => {
       const [count, setCount] = signal(0);
       let effectRuns = 0;
@@ -581,6 +585,35 @@ describe("Signal System", () => {
 
       // The scope should still be created and cleanup should work
       assert.ok(true, "Exception handling works");
+    });
+  });
+
+  describe("Developer Guards", () => {
+    test("signal reader .toString() throws helpful error", () => {
+      const [count] = signal(42);
+      assert.throws(
+        () => count.toString(),
+        /signal.*MUST call it to get the value/,
+      );
+    });
+
+    test("signal writer .toString() throws helpful error", () => {
+      const [, setCount] = signal(42);
+      assert.throws(
+        () => setCount.toString(),
+        /signal.*MUST call it to set the value/,
+      );
+    });
+
+    test("computed reader .toString() throws helpful error", () => {
+      const [base] = signal(1);
+      const doubled = computed(() => base() * 2);
+      // Access once to compute value
+      doubled();
+      assert.throws(
+        () => doubled.toString(),
+        /computed.*MUST call it to get the value/,
+      );
     });
   });
 
